@@ -1,0 +1,356 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.mentor-form-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  background: linear-gradient(180deg, #dbeafe 0%, #e0e7ff 50%, #e9d5ff 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  position: relative;
+}
+
+/* Dashboard Button */
+.dashboard-btn {
+  position: absolute;
+  top: 25px;
+  left: 25px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: white;
+  border: none;
+  border-radius: 20px;
+  color: #2563eb;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.dashboard-btn:hover {
+  background: #eff6ff;
+  transform: translateX(-2px);
+}
+
+.dashboard-btn:active {
+  transform: translateX(0);
+}
+
+.dashboard-icon {
+  font-size: 1.2em;
+  line-height: 1;
+  color: #2563eb;
+}
+
+.dashboard-text {
+  letter-spacing: 0.2px;
+  color: #2563eb;
+}
+
+/* Form Container */
+.mentor-form-container {
+  width: 100%;
+  max-width: 560px;
+}
+
+.mentor-form-card {
+  background: white;
+  border-radius: 16px;
+  padding: 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+/* Form Header */
+.mentor-form-header {
+  background: white;
+  padding: 28px 40px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.mentor-logo {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5em;
+  flex-shrink: 0;
+}
+
+.mentor-form-title {
+  font-size: 1.5em;
+  font-weight: 700;
+  color: #1e40af;
+  margin: 0;
+}
+
+/* Success Message */
+.success-message {
+  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  color: white;
+  padding: 14px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 600;
+  margin: 20px 40px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  animation: slideDown 0.4s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Form Content */
+.mentor-form-content {
+  padding: 32px 40px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.mentor-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mentor-label {
+  font-size: 0.9em;
+  font-weight: 600;
+  color: #374151;
+  letter-spacing: 0.2px;
+}
+
+.auto-fetched {
+  font-weight: 400;
+  color: #6b7280;
+  font-size: 0.95em;
+}
+
+.required {
+  color: #ef4444;
+  font-size: 1.1em;
+}
+
+/* Input Fields */
+.mentor-input,
+.mentor-select,
+.mentor-textarea {
+  padding: 12px 16px;
+  font-size: 0.9em;
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  transition: all 0.2s ease;
+  outline: none;
+  color: #1f2937;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  width: 100%;
+}
+
+.mentor-input:focus,
+.mentor-select:focus,
+.mentor-textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.mentor-input::placeholder,
+.mentor-textarea::placeholder {
+  color: #9ca3af;
+  font-size: 0.95em;
+}
+
+.mentor-select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+  color: #374151;
+}
+
+.mentor-textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.6;
+}
+
+/* Error States */
+.input-error {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
+}
+
+.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+.error-text {
+  font-size: 0.8em;
+  color: #ef4444;
+  font-weight: 500;
+  margin-top: -4px;
+}
+
+/* Submit Button */
+.mentor-submit-btn {
+  margin-top: 8px;
+  padding: 14px;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-size: 0.9em;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  width: 100%;
+}
+
+.mentor-submit-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.mentor-submit-btn:active {
+  transform: translateY(0);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .mentor-form-wrapper {
+    padding: 40px 20px;
+  }
+
+  .dashboard-btn {
+    top: 20px;
+    left: 20px;
+    padding: 9px 18px;
+    font-size: 0.85em;
+  }
+
+  .mentor-form-container {
+    max-width: 100%;
+  }
+
+  .mentor-form-header {
+    padding: 24px 32px;
+  }
+
+  .mentor-logo {
+    width: 44px;
+    height: 44px;
+    font-size: 1.4em;
+  }
+
+  .mentor-form-title {
+    font-size: 1.35em;
+  }
+
+  .mentor-form-content {
+    padding: 28px 32px 36px;
+    gap: 20px;
+  }
+
+  .success-message {
+    margin: 20px 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mentor-form-wrapper {
+    padding: 30px 16px;
+  }
+
+  .dashboard-btn {
+    top: 16px;
+    left: 16px;
+    padding: 8px 16px;
+    font-size: 0.8em;
+    gap: 6px;
+  }
+
+  .mentor-form-card {
+    border-radius: 14px;
+  }
+
+  .mentor-form-header {
+    padding: 20px 24px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .mentor-logo {
+    width: 40px;
+    height: 40px;
+    font-size: 1.3em;
+  }
+
+  .mentor-form-title {
+    font-size: 1.25em;
+  }
+
+  .mentor-form-content {
+    padding: 24px 24px 32px;
+    gap: 18px;
+  }
+
+  .mentor-input,
+  .mentor-select,
+  .mentor-textarea {
+    padding: 11px 14px;
+    font-size: 0.88em;
+  }
+
+  .mentor-label {
+    font-size: 0.85em;
+  }
+
+  .mentor-submit-btn {
+    padding: 13px;
+    font-size: 0.88em;
+  }
+
+  .mentor-textarea {
+    min-height: 90px;
+  }
+
+  .success-message {
+    font-size: 0.9em;
+    padding: 12px;
+    margin: 16px 24px;
+  }
+}
