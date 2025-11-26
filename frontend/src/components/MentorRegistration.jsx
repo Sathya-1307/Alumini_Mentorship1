@@ -98,7 +98,7 @@ export default function MentorRegistrationForm() {
                   <rect x="3" y="5" width="18" height="14" rx="2"></rect>
                   <path d="m3 7 9 6 9-6"></path>
                 </svg>
-                Email <span style={styles.autoFetch}>(Auto-fetched)</span>
+                Email <span style={styles.required}>*</span>
               </label>
               <input
                 type="email"
@@ -116,7 +116,7 @@ export default function MentorRegistrationForm() {
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-                Full Name <span style={styles.autoFetch}>(Auto-fetched)</span>
+                Full Name <span style={styles.required}>*</span>
               </label>
               <input
                 type="text"
@@ -134,7 +134,7 @@ export default function MentorRegistrationForm() {
                   <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
                   <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
                 </svg>
-                Designation <span style={styles.autoFetch}>(Auto-fetched)</span>
+                Designation <span style={styles.required}>*</span>
               </label>
               <input
                 type="text"
@@ -152,7 +152,7 @@ export default function MentorRegistrationForm() {
                   <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                   <polyline points="9 22 9 12 15 12 15 22"></polyline>
                 </svg>
-                Current Company <span style={styles.autoFetch}>(Auto-fetched)</span>
+                Current Company <span style={styles.required}>*</span>
               </label>
               <input
                 type="text"
@@ -171,7 +171,7 @@ export default function MentorRegistrationForm() {
                     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
                     <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
                   </svg>
-                  Branch <span style={styles.autoFetch}>(Auto-fetched)</span>
+                  Branch <span style={styles.required}>*</span>
                 </label>
                 <input
                   type="text"
@@ -191,7 +191,7 @@ export default function MentorRegistrationForm() {
                     <line x1="8" y1="2" x2="8" y2="6"></line>
                     <line x1="3" y1="10" x2="21" y2="10"></line>
                   </svg>
-                  Passed Out Year <span style={styles.autoFetch}>(Auto-fetched)</span>
+                  Passed Out Year <span style={styles.required}>*</span>
                 </label>
                 <input
                   type="text"
@@ -209,7 +209,7 @@ export default function MentorRegistrationForm() {
                 <svg style={styles.labelIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                 </svg>
-                Contact Number <span style={styles.autoFetch}>(Auto-fetched)</span>
+                Contact Number <span style={styles.required}>*</span>
               </label>
               <input
                 type="tel"

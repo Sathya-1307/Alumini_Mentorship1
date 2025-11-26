@@ -101,14 +101,14 @@ export default function MeetingStatusUpdateForm() {
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-                Mentee Name (Autofetched) <span style={styles.required}>*</span>
+                Mentee Name <span style={styles.required}>*</span>
               </label>
               <input
                 type="text"
                 name="menteeName"
                 value={formData.menteeName}
                 onChange={handleChange}
-                placeholder="Autofetched based on assignment"
+                placeholder="Mentee Name"
                 style={{...styles.input, ...(errors.menteeName ? styles.inputError : {})}}
               />
               {errors.menteeName && <span style={styles.errorText}>{errors.menteeName}</span>}
@@ -120,14 +120,14 @@ export default function MeetingStatusUpdateForm() {
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-                Mentor Name (Autofetched) <span style={styles.required}>*</span>
+                Mentor Name <span style={styles.required}>*</span>
               </label>
               <input
                 type="text"
                 name="mentorName"
                 value={formData.mentorName}
                 onChange={handleChange}
-                placeholder="Autofetched based on assignment"
+                placeholder="Mentor Name"
                 style={{...styles.input, ...(errors.mentorName ? styles.inputError : {})}}
               />
               {errors.mentorName && <span style={styles.errorText}>{errors.mentorName}</span>}

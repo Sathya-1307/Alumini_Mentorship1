@@ -128,7 +128,7 @@ export default function MentorshipSchedulingForm() {
                 name="menteeName"
                 value={formData.menteeName}
                 onChange={handleChange}
-                placeholder="Auto fetched from profile"
+                placeholder="Mentee Name"
                 style={{...styles.input, ...(errors.menteeName ? styles.inputError : {})}}
               />
               {errors.menteeName && <span style={styles.errorText}>{errors.menteeName}</span>}
@@ -147,7 +147,7 @@ export default function MentorshipSchedulingForm() {
                 name="menteeEmail"
                 value={formData.menteeEmail}
                 onChange={handleChange}
-                placeholder="Auto fetched from profile"
+                placeholder="Mentee Email"
                 style={{...styles.input, ...(errors.menteeEmail ? styles.inputError : {})}}
               />
               {errors.menteeEmail && <span style={styles.errorText}>{errors.menteeEmail}</span>}
@@ -166,7 +166,7 @@ export default function MentorshipSchedulingForm() {
                 name="mentorName"
                 value={formData.mentorName}
                 onChange={handleChange}
-                placeholder="Auto fetched from profile"
+                placeholder="Mentor Name"
                 style={{...styles.input, ...(errors.mentorName ? styles.inputError : {})}}
               />
               {errors.mentorName && <span style={styles.errorText}>{errors.mentorName}</span>}
@@ -185,7 +185,7 @@ export default function MentorshipSchedulingForm() {
                 name="mentorEmail"
                 value={formData.mentorEmail}
                 onChange={handleChange}
-                placeholder="Auto fetched from profile"
+                placeholder="Mentor Email"
                 style={{...styles.input, ...(errors.mentorEmail ? styles.inputError : {})}}
               />
               {errors.mentorEmail && <span style={styles.errorText}>{errors.mentorEmail}</span>}
