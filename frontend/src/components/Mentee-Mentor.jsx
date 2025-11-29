@@ -295,9 +295,7 @@ export default function MenteeMentorAssignment() {
           </div>
         </div>
 
-        <div className="form-footer">
-          Designed with for Mentorship Program
-        </div>
+        
       </div>
 
       <style>{`

@@ -173,14 +173,22 @@ export default function MentorRegistrationForm() {
                   </svg>
                   Branch <span style={styles.required}>*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   name="branch"
                   value={formData.branch}
                   onChange={handleChange}
-                  placeholder="e.g., Computer Science"
-                  style={styles.input}
-                />
+                  style={styles.select}
+                >
+                  <option value="">-- Select branch --</option>
+                  <option value="Computer Science">Computer Science</option>
+                  <option value="Information Technology">Information Technology</option>
+                  <option value="Electronics and Communication">Electronics and Communication</option>
+                  <option value="Electrical Engineering">Electrical Engineering</option>
+                  <option value="Mechanical Engineering">Mechanical Engineering</option>
+                  <option value="Civil Engineering">Civil Engineering</option>
+                  <option value="Chemical Engineering">Chemical Engineering</option>
+                  <option value="Biotechnology">Biotechnology</option>
+                </select>
               </div>
 
               <div style={styles.formGroup}>
@@ -193,14 +201,29 @@ export default function MentorRegistrationForm() {
                   </svg>
                   Passed Out Year <span style={styles.required}>*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   name="passedOutYear"
                   value={formData.passedOutYear}
                   onChange={handleChange}
-                  placeholder="e.g., 2020"
-                  style={styles.input}
-                />
+                  style={styles.select}
+                >
+                  <option value="">-- Select year --</option>
+                  <option value="2024">2024</option>
+                  <option value="2023">2023</option>
+                  <option value="2022">2022</option>
+                  <option value="2021">2021</option>
+                  <option value="2020">2020</option>
+                  <option value="2019">2019</option>
+                  <option value="2018">2018</option>
+                  <option value="2017">2017</option>
+                  <option value="2016">2016</option>
+                  <option value="2015">2015</option>
+                  <option value="2014">2014</option>
+                  <option value="2013">2013</option>
+                  <option value="2012">2012</option>
+                  <option value="2011">2011</option>
+                  <option value="2010">2010</option>
+                </select>
               </div>
             </div>
 
@@ -273,9 +296,7 @@ export default function MentorRegistrationForm() {
           </div>
         </div>
 
-        <div style={styles.formFooter}>
-          Designed with ❤ for Mentorship Program
-        </div>
+       
       </div>
     </div>
   );

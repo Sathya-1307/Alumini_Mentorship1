@@ -310,9 +310,7 @@ export default function ProgramFeedbackForm() {
           </div>
         </div>
 
-        <div style={styles.formFooter}>
-          Designed with for Mentorship Program
-        </div>
+        
       </div>
     </div>
   );

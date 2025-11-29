@@ -94,7 +94,7 @@ export default function Dashboard() {
               <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
             </svg>
           </div>
-          <h1 style={styles.title}>Alumni Mentorship Program</h1>
+          <h1 style={styles.title}>APEX Mentorship Program</h1>
           <p style={styles.subtitle}>Navigate through the mentorship journey</p>
         </div>
 
@@ -131,10 +131,7 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Footer */}
-        <div style={styles.footer}>
-          Designed with ❤️ for Mentorship Program
-        </div>
+        
       </div>
     </div>
   );

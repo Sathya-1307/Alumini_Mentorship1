@@ -91,7 +91,7 @@ export default function MenteeRegistrationForm() {
             </svg>
           </div>
           <h1 className="form-title">Mentee Registration</h1>
-          <p className="form-subtitle">Fill out all the Experience form</p>
+          <p className="form-subtitle">Join our mentorship program</p>
         </div>
 
         <div className="form-card">
@@ -167,14 +167,19 @@ export default function MenteeRegistrationForm() {
                   </svg>
                   Batch <span className="required">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   name="batch"
                   value={formData.batch}
                   onChange={handleChange}
-                  placeholder="e.g., 2024"
-                  className={`input ${errors.batch ? 'input-error' : ''}`}
-                />
+                  className={`select ${errors.batch ? 'input-error' : ''}`}
+                >
+                  <option value="">-- Select batch --</option>
+                  <option value="2025">2025</option>
+                  <option value="2026">2026</option>
+                  <option value="2027">2027</option>
+                  <option value="2028">2028</option>
+                  <option value="2029">2029</option>
+                </select>
                 {errors.batch && <span className="error-text">{errors.batch}</span>}
               </div>
             </div>
@@ -187,14 +192,22 @@ export default function MenteeRegistrationForm() {
                 </svg>
                 Branch <span className="required">*</span>
               </label>
-              <input
-                type="text"
+              <select
                 name="branch"
                 value={formData.branch}
                 onChange={handleChange}
-                placeholder="e.g., Computer Science"
-                className={`input ${errors.branch ? 'input-error' : ''}`}
-              />
+                className={`select ${errors.branch ? 'input-error' : ''}`}
+              >
+                <option value="">-- Select branch --</option>
+                <option value="Computer Science">Computer Science</option>
+                <option value="Information Technology">Information Technology</option>
+                <option value="Electronics and Communication">Electronics and Communication</option>
+                <option value="Electrical Engineering">Electrical Engineering</option>
+                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                <option value="Civil Engineering">Civil Engineering</option>
+                <option value="Chemical Engineering">Chemical Engineering</option>
+                <option value="Biotechnology">Biotechnology</option>
+              </select>
               {errors.branch && <span className="error-text">{errors.branch}</span>}
             </div>
 
@@ -250,9 +263,7 @@ export default function MenteeRegistrationForm() {
           </div>
         </div>
 
-        <div className="form-footer">
-          Designed with for Mentorship Program
-        </div>
+        
       </div>
     </div>
   );

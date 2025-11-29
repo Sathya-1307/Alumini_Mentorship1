@@ -222,9 +222,7 @@ export default function MeetingStatusUpdateForm() {
           </div>
         </div>
 
-        <div style={styles.formFooter}>
-          Designed with for Mentorship Program
-        </div>
+        
       </div>
     </div>
   );
