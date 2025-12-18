@@ -1,270 +1,325 @@
-import React, { useState } from 'react';
-import './MenteeRegistration.css';
+import React, { useState, useEffect, useRef } from "react";
+import "./MenteeRegistration.css";
 
 export default function MenteeRegistrationForm() {
   const [formData, setFormData] = useState({
-    email: '',
-    fullName: '',
-    branch: '',
-    batch: '',
-    contactNumber: '',
-    areaOfInterest: '',
-    description: ''
+    email: "",
+    fullName: "",
+    branch: "",
+    batch: "",
+    contactNumber: "",
+    areaOfInterest: "",
+    description: "",
+    phaseId: null,
+    phaseName: "", // auto-filled Phase Name
   });
 
+  const [phases, setPhases] = useState([]);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [emailFetched, setEmailFetched] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const emailTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    fetchPhases();
+    return () => {
+      if (emailTimeoutRef.current) clearTimeout(emailTimeoutRef.current);
+    };
+  }, []);
+
+  // Fetch all phases and determine current active phase
+  const fetchPhases = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/api/phases");
+      const data = await res.json();
+      if (res.ok && data.phases) {
+        setPhases(data.phases);
+        const currentPhase = data.phases.find(
+          (p) => new Date(p.startDate) <= new Date() && new Date() <= new Date(p.endDate)
+        );
+        if (currentPhase) {
+          setFormData((prev) => ({
+            ...prev,
+            phaseId: currentPhase.phaseId,
+            phaseName: `${currentPhase.name} (${new Date(currentPhase.startDate).toLocaleDateString()} - ${new Date(currentPhase.endDate).toLocaleDateString()})`,
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch phases:", err);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    if (errors[name]) {
-      setErrors(prev => ({
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+
+    if (name === "email") {
+      setEmailFetched(false);
+      setErrors((prev) => ({ ...prev, email: "" }));
+
+      if (emailTimeoutRef.current) clearTimeout(emailTimeoutRef.current);
+
+      const trimmed = value.trim();
+      if (!trimmed) {
+        setFormData((prev) => ({
+          ...prev,
+          fullName: "",
+          branch: "",
+          batch: "",
+          contactNumber: "",
+        }));
+        return;
+      }
+
+      emailTimeoutRef.current = setTimeout(() => {
+        if (/\S+@\S+\.\S+/.test(trimmed)) {
+          fetchUserByEmail(trimmed.toLowerCase());
+        }
+      }, 600);
+    }
+  };
+
+  const fetchUserByEmail = async (email) => {
+    try {
+      setLoadingEmail(true);
+      const res = await fetch(
+        `http://localhost:5000/api/users/get-by-email?email=${encodeURIComponent(email)}`
+      );
+      const data = await res.json();
+
+      if (res.ok && data.user) {
+        setFormData((prev) => ({
+          ...prev,
+          fullName: data.user.fullName || "Name not found",
+          branch: data.user.branch || "Not specified",
+          batch: data.user.batch || "Not specified",
+          contactNumber: data.user.mobile || "Not provided",
+        }));
+        setEmailFetched(true);
+      } else {
+        setErrors((prev) => ({
+          ...prev,
+          email: data.message || "Email not found in members database",
+        }));
+        setEmailFetched(false);
+        setFormData((prev) => ({
+          ...prev,
+          fullName: "",
+          branch: "",
+          batch: "",
+          contactNumber: "",
+        }));
+      }
+    } catch (err) {
+      setErrors((prev) => ({
         ...prev,
-        [name]: ''
+        email: "Connection failed. Is backend running?",
       }));
+    } finally {
+      setLoadingEmail(false);
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-    
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Email is invalid';
-    }
-    
-    if (!formData.fullName) newErrors.fullName = 'Full name is required';
-    if (!formData.branch) newErrors.branch = 'Branch is required';
-    if (!formData.batch) newErrors.batch = 'Batch is required';
-    if (!formData.contactNumber) {
-      newErrors.contactNumber = 'Contact number is required';
-    } else if (!/^\d{10}$/.test(formData.contactNumber)) {
-      newErrors.contactNumber = 'Contact number must be 10 digits';
-    }
-    if (!formData.areaOfInterest) newErrors.areaOfInterest = 'Area of interest is required';
-    if (!formData.description) newErrors.description = 'Description is required';
-    
+    if (!formData.email.trim()) newErrors.email = "Email is required";
+    if (!formData.fullName) newErrors.fullName = "Full name not found";
+    if (!formData.branch || formData.branch === "Not specified") newErrors.branch = "Branch not found";
+    if (!formData.batch || formData.batch === "Not specified") newErrors.batch = "Batch not found";
+    if (!formData.contactNumber || formData.contactNumber === "Not provided")
+      newErrors.contactNumber = "Contact number not found";
+    if (!formData.areaOfInterest) newErrors.areaOfInterest = "Please select an area";
+    if (!formData.description.trim()) newErrors.description = "Description is required";
     return newErrors;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const newErrors = validateForm();
-    
-    if (Object.keys(newErrors).length === 0) {
-      setSubmitted(true);
-      console.log('Form data:', formData);
-      setTimeout(() => {
-        setFormData({
-          email: '',
-          fullName: '',
-          branch: '',
-          batch: '',
-          contactNumber: '',
-          areaOfInterest: '',
-          description: ''
-        });
-        setSubmitted(false);
-      }, 3000);
-    } else {
+    if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      return;
+    }
+
+    if (!formData.phaseId) {
+      alert("No active phase found. Cannot submit.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const res = await fetch("http://localhost:5000/api/mentee/requests/mentee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email.toLowerCase().trim(),
+          area_of_interest: formData.areaOfInterest,
+          description: formData.description.trim(),
+          phaseId: formData.phaseId,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (res.ok) {
+        setSubmitted(true);
+        setTimeout(() => {
+          setFormData({
+            email: "",
+            fullName: "",
+            branch: "",
+            batch: "",
+            contactNumber: "",
+            areaOfInterest: "",
+            description: "",
+            phaseId: null,
+            phaseName: "",
+          });
+          setErrors({});
+          setEmailFetched(false);
+          setSubmitted(false);
+        }, 2500);
+      } else {
+        alert(result.message || "Failed to submit. Try again.");
+      }
+    } catch (err) {
+      alert("No internet or server down. Check backend.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  return (
-    <div className="form-wrapper">
-      <button className="dashboard-btn" onClick={() => window.location.href = '/'}>
-        <span className="dashboard-icon">←</span>
-        <span className="dashboard-text">Go to Dashboard</span>
-      </button>
+return (
+  <div className="form-wrapper">
+    <button className="dashboard-btn" onClick={() => (window.location.href = "/dashboard")}>
+      ← Go to Dashboard
+    </button>
 
-      <div className="form-container">
-        <div className="form-header">
-          <div className="logo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-            </svg>
+    <div className="form-container">
+      <div className="form-header">
+        <h1 className="form-title">Mentee Registration</h1>
+        <p className="form-subtitle">Only registered alumni can apply</p>
+      </div>
+
+      <div className="form-card">
+        {submitted && <div className="success-message">Registration submitted successfully!</div>}
+
+        <div className="form-content">
+          {/* Email */}
+          <div className="form-group">
+            <label className="label">College Email <span className="required">*</span></label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="e.g. chocka.nec@gmail.com"
+              className={`input ${errors.email ? "input-error" : ""}`}
+              disabled={submitting}
+            />
+            {loadingEmail && <small className="loading-text">Searching in members database...</small>}
+            {errors.email && <span className="error-text">{errors.email}</span>}
+            {emailFetched && !errors.email && (
+              <small style={{ color: "#8b5cf6", fontWeight: "600" }}>✓ Found in database!</small>
+            )}
           </div>
-          <h1 className="form-title">Mentee Registration</h1>
-          <p className="form-subtitle">Join our mentorship program</p>
-        </div>
 
-        <div className="form-card">
-          {submitted && (
-            <div className="success-message">
-              ✓ Registration submitted successfully!
-            </div>
-          )}
-
-          <div className="form-content">
-            <div className="form-group">
-              <label className="label">
-                <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
-                Full Name <span className="required">*</span>
-              </label>
-              <input
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder="Enter your full name"
-                className={`input ${errors.fullName ? 'input-error' : ''}`}
-              />
-              {errors.fullName && <span className="error-text">{errors.fullName}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="label">
-                <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="5" width="18" height="14" rx="2"></rect>
-                  <path d="m3 7 9 6 9-6"></path>
-                </svg>
-                Personal Email ID <span className="required">*</span>
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="your.email@example.com"
-                className={`input ${errors.email ? 'input-error' : ''}`}
-              />
-              {errors.email && <span className="error-text">{errors.email}</span>}
-            </div>
-
-            <div className="form-row">
-              <div className="form-group">
-                <label className="label">
-                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
-                  </svg>
-                  Contact No <span className="required">*</span>
-                </label>
-                <input
-                  type="tel"
-                  name="contactNumber"
-                  value={formData.contactNumber}
-                  onChange={handleChange}
-                  placeholder="10-digit mobile number"
-                  className={`input ${errors.contactNumber ? 'input-error' : ''}`}
-                />
-                {errors.contactNumber && <span className="error-text">{errors.contactNumber}</span>}
-              </div>
-
-              <div className="form-group">
-                <label className="label">
-                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                    <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-                  </svg>
-                  Batch <span className="required">*</span>
-                </label>
-                <select
-                  name="batch"
-                  value={formData.batch}
-                  onChange={handleChange}
-                  className={`select ${errors.batch ? 'input-error' : ''}`}
-                >
-                  <option value="">-- Select batch --</option>
-                  <option value="2025">2025</option>
-                  <option value="2026">2026</option>
-                  <option value="2027">2027</option>
-                  <option value="2028">2028</option>
-                  <option value="2029">2029</option>
-                </select>
-                {errors.batch && <span className="error-text">{errors.batch}</span>}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="label">
-                <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                </svg>
-                Branch <span className="required">*</span>
-              </label>
-              <select
-                name="branch"
-                value={formData.branch}
-                onChange={handleChange}
-                className={`select ${errors.branch ? 'input-error' : ''}`}
-              >
-                <option value="">-- Select branch --</option>
-                <option value="Computer Science">Computer Science</option>
-                <option value="Information Technology">Information Technology</option>
-                <option value="Electronics and Communication">Electronics and Communication</option>
-                <option value="Electrical Engineering">Electrical Engineering</option>
-                <option value="Mechanical Engineering">Mechanical Engineering</option>
-                <option value="Civil Engineering">Civil Engineering</option>
-                <option value="Chemical Engineering">Chemical Engineering</option>
-                <option value="Biotechnology">Biotechnology</option>
-              </select>
-              {errors.branch && <span className="error-text">{errors.branch}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="label">
-                <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <circle cx="12" cy="12" r="6"></circle>
-                  <circle cx="12" cy="12" r="2"></circle>
-                </svg>
-                Area of Interest <span className="required">*</span>
-              </label>
-              <select
-                name="areaOfInterest"
-                value={formData.areaOfInterest}
-                onChange={handleChange}
-                className={`select ${errors.areaOfInterest ? 'input-error' : ''}`}
-              >
-                <option value="">-- Select an option --</option>
-                <option value="web-development">Web Development</option>
-                <option value="mobile-development">Mobile Development</option>
-                <option value="data-science">Data Science</option>
-                <option value="machine-learning">Machine Learning</option>
-                <option value="cloud-computing">Cloud Computing</option>
-                <option value="cybersecurity">Cybersecurity</option>
-                <option value="ui-ux-design">UI/UX Design</option>
-                <option value="devops">DevOps</option>
-              </select>
-              {errors.areaOfInterest && <span className="error-text">{errors.areaOfInterest}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="label">
-                <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
-                Description <span className="required">*</span>
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Background, goals, or additional information"
-                rows="4"
-                className={`textarea ${errors.description ? 'input-error' : ''}`}
-              />
-              {errors.description && <span className="error-text">{errors.description}</span>}
-            </div>
-
-            <button onClick={handleSubmit} className="submit-btn">
-              Submit
-            </button>
+          {/* Auto-filled Phase Name */}
+          <div className="form-group">
+            <label className="label">Current Phase</label>
+            <input
+              type="text"
+              value={formData.phaseName}
+              disabled
+              className="input disabled-input"
+            />
           </div>
-        </div>
 
-        
+          {/* Auto-filled user details */}
+          <div className="form-row">
+            <div className="form-group">
+              <label className="label">Full Name</label>
+              <input type="text" value={formData.fullName} disabled className="input disabled-input" />
+            </div>
+            <div className="form-group">
+              <label className="label">Branch</label>
+              <input type="text" value={formData.branch} disabled className="input disabled-input" />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="label">Batch</label>
+              <input type="text" value={formData.batch} disabled className="input disabled-input" />
+            </div>
+            <div className="form-group">
+              <label className="label">Contact</label>
+              <input type="text" value={formData.contactNumber} disabled className="input disabled-input" />
+            </div>
+          </div>
+
+          {/* Area of Interest */}
+          <div className="form-group">
+            <label className="label">Area of Interest <span className="required">*</span></label>
+            <select
+              name="areaOfInterest"
+              value={formData.areaOfInterest}
+              onChange={handleChange}
+              className={`select ${errors.areaOfInterest ? "input-error" : ""}`}
+              disabled={submitting}
+            >
+              <option value="">-- Select one --</option>
+              <option value="web-development">Web Development</option>
+              <option value="data-science">Data Science</option>
+              <option value="machine-learning">Machine Learning</option>
+              <option value="cloud-computing">Cloud Computing</option>
+              <option value="cybersecurity">Cybersecurity</option>
+              <option value="app-development">App Development</option>
+              <option value="devops">DevOps</option>
+            </select>
+            {errors.areaOfInterest && <span className="error-text">{errors.areaOfInterest}</span>}
+          </div>
+
+          {/* Description */}
+          <div className="form-group">
+            <label className="label">Your Goals & Background <span className="required">*</span></label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder="What do you want to learn? What's your current level? Any projects?"
+              rows="5"
+              className={`textarea ${errors.description ? "input-error" : ""}`}
+              disabled={submitting}
+            />
+            {errors.description && <span className="error-text">{errors.description}</span>}
+          </div>
+
+          <button
+            onClick={handleSubmit}
+            className="submit-btn"
+            disabled={submitting || loadingEmail || submitted}
+          >
+            {submitting ? (
+              <>
+                <span className="loading-spinner"></span>
+                Submitting...
+              </>
+            ) : submitted ? (
+              "Submitted!"
+            ) : (
+              "Submit Request"
+            )}
+          </button>
+        </div>
       </div>
     </div>
-  );
+  </div>
+);
 }
+// ==================================================

@@ -1,3 +1,4 @@
+/* Enhanced Reset and Base Styles */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 * {
@@ -6,124 +7,27 @@
   box-sizing: border-box;
 }
 
-.form-wrapper {
-  min-height: 100vh;
-  width: 100%;
-  background: linear-gradient(180deg, #e9d5ff 0%, #f3e8ff 30%, #e0e7ff 60%, #dbeafe 100%);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 60px 20px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  position: relative;
+/* @Keyframes for Animation */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-/* Dashboard Button */
-.dashboard-btn {
-  position: absolute;
-  top: 25px;
-  left: 25px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: white;
-  border: none;
-  border-radius: 20px;
-  color: #7c3aed;
-  font-size: 0.9em;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.dashboard-btn:hover {
-  background: #faf5ff;
-  transform: translateX(-2px);
-}
-
-.dashboard-btn:active {
-  transform: translateX(0);
-}
-
-.dashboard-icon {
-  font-size: 1.2em;
-  line-height: 1;
-  color: #7c3aed;
-}
-
-.dashboard-text {
-  letter-spacing: 0.2px;
-  color: #7c3aed;
-}
-
-/* Form Container */
-.form-container {
-  width: 100%;
-  max-width: 620px;
-}
-
-/* Form Header */
-.form-header {
-  text-align: center;
-  margin-bottom: 32px;
-}
-
-.logo {
-  width: 72px;
-  height: 72px;
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 24px;
-  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.35);
-}
-
-.logo svg {
-  width: 36px;
-  height: 36px;
-  color: white;
-  stroke-width: 2.5;
-}
-
-.form-title {
-  font-size: 2em;
-  font-weight: 800;
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 8px;
-}
-
-.form-subtitle {
-  color: #6b7280;
-  font-size: 0.95em;
-  font-weight: 400;
-}
-
-.form-card {
-  background: white;
-  border-radius: 20px;
-  padding: 48px 56px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
-}
-
-/* Success Message */
-.success-message {
-  background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
-  color: white;
-  padding: 14px;
-  border-radius: 12px;
-  text-align: center;
-  font-weight: 600;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-  animation: slideDown 0.4s ease;
+@keyframes logoShine {
+  0%, 100% { transform: skewX(-20deg) translateX(-100%); }
+  50% { transform: skewX(-20deg) translateX(100%); }
 }
 
 @keyframes slideDown {
@@ -137,6 +41,141 @@
   }
 }
 
+/* 🌀 Enhanced Form Wrapper - Purple Animated Gradient Background */
+.form-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  /* Purple gradient background matching theme */
+  background: linear-gradient(135deg, #f5f7ff 0%, #f0f2ff 50%, #e6e9ff 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 20s ease infinite;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Enhanced Dashboard Button (Purple Glassmorphism) */
+.dashboard-btn {
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 12px;
+  color: #8b5cf6;
+  font-size: 0.9em;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(139, 92, 246, 0.15);
+  transition: all 0.3s ease;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  z-index: 100;
+  letter-spacing: 0.3px;
+}
+
+.dashboard-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 40px rgba(139, 92, 246, 0.25);
+  border-color: rgba(139, 92, 246, 0.3);
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.dashboard-btn:active {
+  transform: translateY(0);
+}
+
+/* Form Container */
+.form-container {
+  width: 100%;
+  max-width: 640px;
+}
+
+/* Form Header */
+.form-header {
+  text-align: center;
+  margin-bottom: 40px;
+  animation: fadeInUp 0.8s ease;
+}
+
+.logo {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 28px;
+  box-shadow: 0 15px 35px rgba(139, 92, 246, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.logo::before {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), transparent);
+  animation: logoShine 3s infinite ease-in-out;
+}
+
+.logo svg {
+  width: 40px;
+  height: 40px;
+  color: white;
+  stroke-width: 2.5;
+}
+
+.form-title {
+  font-size: 2.5em;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 10px;
+  letter-spacing: -0.5px;
+}
+
+.form-subtitle {
+  color: #6b7280;
+  font-size: 1.05em;
+  font-weight: 400;
+}
+
+/* Form Card - Glass Morphism */
+.form-card {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 50px 60px;
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  box-shadow: 0 20px 60px rgba(139, 92, 246, 0.15);
+  position: relative;
+  z-index: 1;
+  animation: fadeInUp 0.8s ease;
+}
+
+/* Success Message */
+.success-message {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+  color: white;
+  padding: 16px 24px;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 1em;
+  margin-bottom: 32px;
+  box-shadow: 0 10px 30px rgba(139, 92, 246, 0.25);
+  animation: slideDown 0.6s ease;
+}
+
 /* Form Content */
 .form-content {
   display: flex;
@@ -147,88 +186,84 @@
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: 24px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .label {
   font-size: 0.9em;
   font-weight: 600;
-  color: #4b5563;
-  letter-spacing: 0.2px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  color: #2c3e50;
+  letter-spacing: 0.3px;
 }
 
-.label-icon {
-  width: 18px;
-  height: 18px;
-  color: #8b5cf6;
-  flex-shrink: 0;
-}
-
-.required {
-  color: #ef4444;
-  font-size: 1.1em;
-}
-
-/* Input Fields */
+/* Form Inputs */
 .input,
 .select,
 .textarea {
+  width: 100%;
   padding: 14px 18px;
-  font-size: 0.92em;
-  border: 1.5px solid #e5e7eb;
+  border: 1px solid #ddd;
   border-radius: 10px;
-  background: #f9fafb;
+  font-size: 15px;
+  font-family: 'Inter', sans-serif;
   transition: all 0.2s ease;
   outline: none;
-  color: #1f2937;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  width: 100%;
+  background: white;
+  color: #2c3e50;
+  font-weight: 500;
 }
 
 .input:focus,
 .select:focus,
 .textarea:focus {
   border-color: #8b5cf6;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.input:hover,
+.select:hover,
+.textarea:hover {
+  border-color: #a78bfa;
 }
 
 .input::placeholder,
 .textarea::placeholder {
   color: #9ca3af;
-  font-size: 0.95em;
 }
 
+/* Disabled Input */
+.disabled-input {
+  background: #f8f9ff;
+  color: #6b7280;
+  cursor: not-allowed;
+  border-color: rgba(139, 92, 246, 0.1);
+}
+
+/* Select Styling */
 .select {
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%238b5cf6' d='M8 11L3 6h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 16px center;
-  padding-right: 40px;
-  color: #6b7280;
+  background-position: right 18px center;
+  padding-right: 48px;
 }
 
 .textarea {
+  min-height: 140px;
   resize: vertical;
-  min-height: 120px;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  line-height: 1.6;
 }
 
 /* Error States */
 .input-error {
   border-color: #ef4444 !important;
-  background: #fef2f2 !important;
+  background: rgba(239, 68, 68, 0.05) !important;
 }
 
 .input-error:focus {
@@ -236,37 +271,52 @@
 }
 
 .error-text {
-  font-size: 0.8em;
+  font-size: 0.85em;
   color: #ef4444;
   font-weight: 500;
-  margin-top: -6px;
+  margin-top: 4px;
+}
+
+/* Loading Text */
+.loading-text {
+  font-size: 0.85em;
+  color: #8b5cf6;
+  font-style: italic;
+  margin-top: 4px;
 }
 
 /* Submit Button */
 .submit-btn {
-  margin-top: 8px;
-  padding: 16px;
-  background: linear-gradient(90deg, #8b5cf6 0%, #3b82f6 100%);
-  border: none;
-  border-radius: 14px;
-  color: white;
-  font-size: 0.95em;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.35);
-  transition: all 0.2s ease;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   width: 100%;
+  padding: 16px 30px;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Inter', sans-serif;
+  margin-top: 10px;
 }
 
-.submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
   transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.45);
+  box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
 }
 
-.submit-btn:active {
+.submit-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #a78bfa 0%, #c4b5fd 100%);
+  transform: none;
+  box-shadow: none;
 }
 
 /* Form Footer */
@@ -287,38 +337,21 @@
   .dashboard-btn {
     top: 20px;
     left: 20px;
-    padding: 9px 18px;
+    padding: 10px 20px;
     font-size: 0.85em;
   }
 
-  .form-container {
-    max-width: 100%;
-  }
-
   .form-card {
-    padding: 40px 32px;
-  }
-
-  .logo {
-    width: 64px;
-    height: 64px;
-  }
-
-  .logo svg {
-    width: 32px;
-    height: 32px;
+    padding: 40px 30px;
+    border-radius: 20px;
   }
 
   .form-title {
-    font-size: 1.7em;
+    font-size: 2em;
   }
 
   .form-subtitle {
-    font-size: 0.9em;
-  }
-
-  .form-content {
-    gap: 20px;
+    font-size: 0.95em;
   }
 
   .form-row {
@@ -329,7 +362,7 @@
   .input,
   .select,
   .textarea {
-    padding: 13px 16px;
+    padding: 12px 16px;
   }
 }
 
@@ -343,7 +376,6 @@
     left: 16px;
     padding: 8px 16px;
     font-size: 0.8em;
-    gap: 6px;
   }
 
   .form-card {
@@ -352,64 +384,33 @@
   }
 
   .logo {
-    width: 56px;
-    height: 56px;
+    width: 60px;
+    height: 60px;
     margin-bottom: 20px;
   }
 
   .logo svg {
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
   }
 
   .form-title {
-    font-size: 1.5em;
+    font-size: 1.8em;
   }
 
   .form-subtitle {
-    font-size: 0.85em;
-  }
-
-  .form-header {
-    margin-bottom: 28px;
-  }
-
-  .form-content {
-    gap: 18px;
+    font-size: 0.9em;
   }
 
   .input,
   .select,
   .textarea {
     padding: 12px 14px;
-    font-size: 0.88em;
-  }
-
-  .label {
-    font-size: 0.85em;
-  }
-
-  .label-icon {
-    width: 16px;
-    height: 16px;
+    font-size: 14px;
   }
 
   .submit-btn {
-    padding: 14px;
-    font-size: 0.9em;
-  }
-
-  .textarea {
-    min-height: 100px;
-  }
-
-  .success-message {
-    font-size: 0.9em;
-    padding: 12px;
-  }
-
-  .form-footer {
-    font-size: 0.8em;
-    margin-top: 20px;
+    padding: 14px 24px;
+    font-size: 15px;
   }
 }

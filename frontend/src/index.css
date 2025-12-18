@@ -1,13 +1,47 @@
+/* Enhanced Global Styles */
+
+/* Import a modern font (Inter) for better visual appeal, if not already linked in HTML */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box; /* Ensuring box model consistency */
+}
+
+/* @Keyframes for Animation */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  /* Applying the animated gradient background */
+  background: linear-gradient(135deg, #667eea 0%, #f093fb 40%, #00f2fe 60%, #667eea 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 25s ease infinite; /* Slower animation for subtlety */
+  
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  
+  /* Retaining original rendering settings */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* Ensure body fills viewport for the background effect */
+  min-height: 100vh;
+  width: 100vw;
+  overflow-x: hidden;
+  color: #1f2937; /* Default text color set for contrast */
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  /* Added a subtle, modern style for code blocks */
+  background-color: rgba(102, 126, 234, 0.1);
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 0.9em;
+  color: #764ba2;
 }

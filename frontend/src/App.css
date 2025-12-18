@@ -1,31 +1,21 @@
-.App {
-  text-align: center;
+/* Enhanced React App Styles */
+
+/* @Keyframes for Animation */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
+@keyframes pulseColor {
+  0%, 100% {
+    color: #61dafb;
+    text-shadow: 0 0 5px rgba(97, 218, 251, 0.5);
   }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
+  50% {
+    color: #f093fb;
+    text-shadow: 0 0 10px rgba(240, 147, 251, 0.8);
+  }
 }
 
 @keyframes App-logo-spin {
@@ -35,4 +25,69 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Base App Container */
+.App {
+  text-align: center;
+  /* Ensure smooth transitions on any future changes */
+  transition: all 0.5s ease;
+}
+
+.App-logo {
+  height: 40vmin;
+  pointer-events: none;
+  /* Add subtle initial depth */
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5));
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .App-logo {
+    /* Animation remains unchanged from original */
+    animation: App-logo-spin infinite 20s linear;
+  }
+}
+
+/* Enhanced App Header (Dynamic Background) */
+.App-header {
+  /* Dynamic, animated background gradient (Replacing static #282c34) */
+  background: linear-gradient(135deg, #282c34 0%, #3a404a 25%, #667eea 75%, #282c34 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 25s ease infinite;
+  
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(10px + 2vmin);
+  color: white;
+  
+  /* Add subtle glassmorphism effect to the content area */
+  backdrop-filter: blur(5px);
+  padding: 20px;
+}
+
+/* Enhanced App Link (Animated Color) */
+.App-link {
+  /* Animated Clip-Text Gradient (Using gradientShift for background animation, but applying it as text color) */
+  background: linear-gradient(90deg, #61dafb 0%, #f093fb 50%, #00f2fe 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  
+  text-decoration: none; /* Keep links clean */
+  transition: all 0.3s ease;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+
+  /* Subtle pulsing color animation for attention */
+  animation: pulseColor 4s infinite ease-in-out;
+}
+
+.App-link:hover {
+  filter: brightness(1.2);
+  transform: scale(1.05);
+  text-shadow: 0 0 15px rgba(97, 218, 251, 0.9);
 }

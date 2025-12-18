@@ -1,243 +1,1198 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import './MentorshipDashboard.css';
 
-export default function Dashboard() {
-  const handleNavigate = (path) => {
-    window.location.href = path;
+// Real-time update intervals (in milliseconds)
+const REFRESH_INTERVALS = {
+  STATS: 30000,      // 30 seconds
+  MENTORS: 60000,    // 1 minute
+  MENTEES: 60000,    // 1 minute
+  MEETINGS: 30000,   // 30 seconds
+  ASSIGNMENTS: 120000 // 2 minutes
+};
+
+export default function RealTimeDashboard() {
+  const navigate = useNavigate();
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [searchMentor, setSearchMentor] = useState('');
+  const [activePhase, setActivePhase] = useState('all');
+  const [currentSessionIndex, setCurrentSessionIndex] = useState(0);
+  const [currentMentorIndex, setCurrentMentorIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const [userRole, setUserRole] = useState('mentee');
+  const [userEmail, setUserEmail] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshIntervals, setRefreshIntervals] = useState(REFRESH_INTERVALS);
+  
+  // Real-time data states
+  const [dashboardStats, setDashboardStats] = useState({
+    totalMentors: 0,
+    totalMentees: 0,
+    newMentorsThisWeek: 0,
+    newMenteesThisWeek: 0,
+    totalMeetings: 0,
+    upcomingMeetings: 0
+  });
+  
+  const [mentorshipPhases, setMentorshipPhases] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [mentorCapacityData, setMentorCapacityData] = useState([]);
+  const [allMentors, setAllMentors] = useState([]);
+  const [allMentees, setAllMentees] = useState([]);
+  const [allAssignments, setAllAssignments] = useState([]);
+  const [allMeetings, setAllMeetings] = useState([]);
+  const [allFeedbacks, setAllFeedbacks] = useState([]);
+
+  // Real-time update timers
+  const [timers, setTimers] = useState({});
+
+  // Check screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Get user info from localStorage
+  useEffect(() => {
+    const storedRole = localStorage.getItem('userRole') || 'mentee';
+    const storedEmail = localStorage.getItem('userEmail') || '';
+    setUserRole(storedRole);
+    setUserEmail(storedEmail);
+  }, []);
+
+  // Reset mentor index when search changes
+  useEffect(() => {
+    setCurrentMentorIndex(0);
+  }, [searchMentor]);
+
+  // Real-time data fetching functions
+  const fetchDashboardStats = useCallback(async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/dashboard/stats');
+      if (res.data.success) {
+        setDashboardStats(res.data.stats);
+        setLastUpdated(res.data.lastUpdated || new Date());
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  }, []);
+
+  const fetchAllMentors = useCallback(async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/dashboard/mentors');
+      if (res.data.success) {
+        setAllMentors(res.data.mentors || []);
+      }
+    } catch (error) {
+      console.error('Error fetching mentors:', error);
+    }
+  }, []);
+
+  const fetchAllMentees = useCallback(async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/dashboard/mentees');
+      if (res.data.success) {
+        setAllMentees(res.data.mentees || []);
+      }
+    } catch (error) {
+      console.error('Error fetching mentees:', error);
+    }
+  }, []);
+
+  const fetchAllAssignments = useCallback(async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/dashboard/assignments');
+      if (res.data.success) {
+        setAllAssignments(res.data.assignments || []);
+      }
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+    }
+  }, []);
+
+  const fetchAllMeetings = useCallback(async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/dashboard/meetings');
+      if (res.data.success) {
+        setAllMeetings(res.data.meetings || []);
+      }
+    } catch (error) {
+      console.error('Error fetching meetings:', error);
+    }
+  }, []);
+
+  const fetchAllFeedbacks = useCallback(async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/dashboard/feedbacks');
+      if (res.data.success) {
+        setAllFeedbacks(res.data.feedbacks || []);
+      }
+    } catch (error) {
+      console.error('Error fetching feedbacks:', error);
+    }
+  }, []);
+
+  // Setup real-time intervals
+  useEffect(() => {
+    // Initial fetch
+    const initialFetch = async () => {
+      setIsRefreshing(true);
+      try {
+        await Promise.all([
+          fetchDashboardStats(),
+          fetchAllMentors(),
+          fetchAllMentees(),
+          fetchAllAssignments(),
+          fetchAllMeetings(),
+          fetchAllFeedbacks()
+        ]);
+      } catch (error) {
+        console.error('Initial fetch error:', error);
+      } finally {
+        setIsRefreshing(false);
+        setLoading(false);
+      }
+    };
+
+    initialFetch();
+
+    // Set up real-time intervals
+    const intervalStats = setInterval(fetchDashboardStats, refreshIntervals.STATS);
+    const intervalMentors = setInterval(fetchAllMentors, refreshIntervals.MENTORS);
+    const intervalMentees = setInterval(fetchAllMentees, refreshIntervals.MENTEES);
+    const intervalAssignments = setInterval(fetchAllAssignments, refreshIntervals.ASSIGNMENTS);
+    const intervalMeetings = setInterval(fetchAllMeetings, refreshIntervals.MEETINGS);
+
+    setTimers({
+      stats: intervalStats,
+      mentors: intervalMentors,
+      mentees: intervalMentees,
+      assignments: intervalAssignments,
+      meetings: intervalMeetings
+    });
+
+    // Cleanup intervals on unmount
+    return () => {
+      Object.values(timers).forEach(timer => clearInterval(timer));
+    };
+  }, []);
+
+  // Calculate derived data from real-time data
+  useEffect(() => {
+    if (allMeetings.length > 0) {
+      // Format sessions from meetings
+      const formattedSessions = allMeetings.map((meeting, index) => {
+        const firstDate = meeting.meeting_dates?.[0];
+        return {
+          id: meeting._id || `meeting-${index}`,
+          mentorName: meeting.mentorDetails?.name || 'Mentor',
+          menteeName: meeting.mentees?.[0]?.name || 'Mentee',
+          date: firstDate?.date || meeting.createdAt,
+          time: meeting.meeting_time || '10:00 AM',
+          status: meeting.status?.toLowerCase() || 'scheduled',
+          topic: meeting.agenda || 'Mentorship Session',
+          phase: meeting.phaseId || 'phase_2024_h2',
+          duration: meeting.duration_minutes ? `${meeting.duration_minutes} mins` : '60 mins',
+          meetingType: meeting.platform || 'Virtual'
+        };
+      });
+      setSessions(formattedSessions);
+    }
+  }, [allMeetings]);
+
+  useEffect(() => {
+    if (allAssignments.length > 0) {
+      // Calculate mentor capacity from assignments
+      const capacityMap = {};
+      allAssignments.forEach(assignment => {
+        const mentorId = assignment.mentor_user_id;
+        if (!capacityMap[mentorId]) {
+          capacityMap[mentorId] = {
+            id: mentorId,
+            name: assignment.mentorDetails?.name || 'Unknown Mentor',
+            menteeCount: 0,
+            maxCapacity: 3,
+            mentees: [],
+            sessionsCompleted: 0,
+            sessionsUpcoming: 0
+          };
+        }
+        capacityMap[mentorId].menteeCount += assignment.mentees?.length || 0;
+        capacityMap[mentorId].mentees = [
+          ...capacityMap[mentorId].mentees,
+          ...(assignment.mentees?.map(m => m.name) || [])
+        ];
+      });
+      
+      setMentorCapacityData(Object.values(capacityMap));
+    }
+  }, [allAssignments]);
+
+  useEffect(() => {
+    if (dashboardStats.phaseStats && dashboardStats.phaseStats.length > 0) {
+      const formattedPhases = dashboardStats.phaseStats.map((phase, index) => ({
+        id: `phase_${phase.phaseId}`,
+        phaseId: phase.phaseId,
+        name: `Phase ${phase.phaseId}`,
+        period: phase.startDate && phase.endDate 
+          ? `${new Date(phase.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - ${new Date(phase.endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+          : 'Not specified',
+        status: index === dashboardStats.phaseStats.length - 1 ? 'active' : 'completed',
+        totalMeetings: 0,
+        completedMeetings: 0,
+        postponedMeetings: 0,
+        mentorsActive: phase.totalMentors || 0,
+        menteesActive: phase.totalMentees || 0,
+        newMentors: 0,
+        newMentees: 0
+      }));
+      setMentorshipPhases(formattedPhases);
+    }
+  }, [dashboardStats]);
+
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchDashboardStats(),
+        fetchAllMentors(),
+        fetchAllMentees(),
+        fetchAllAssignments(),
+        fetchAllMeetings(),
+        fetchAllFeedbacks()
+      ]);
+    } catch (error) {
+      console.error('Manual refresh error:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
-  const dashboardCards = [
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('userEmail');
+    navigate('/');
+  };
+
+  // Check if user is coordinator
+  const isCoordinator = () => {
+    return userRole.toLowerCase() === 'coordinator' || userRole.toLowerCase() === 'admin';
+  };
+
+  // Handle Phase button click
+  const handlePhaseButtonClick = () => {
+    navigate('/admin_dashboard');
+  };
+
+  // Filter sessions for the carousel based on status only
+  const filteredSessionsByStatus = sessions.filter(session => {
+    return filterStatus === 'all' || session.status === filterStatus;
+  });
+
+  // Filter phases based on active phase filter
+  const filteredPhases = mentorshipPhases.filter(phase => 
+    activePhase === 'all' || phase.id === activePhase
+  );
+
+  // Filter mentor capacity data based on search
+  const filteredMentorCapacity = mentorCapacityData.filter(mentor => 
+    mentor.name.toLowerCase().includes(searchMentor.toLowerCase())
+  );
+
+  // Calculate real-time meeting statistics
+  const calculateMeetingStats = () => {
+    const completedMeetings = allMeetings.filter(m => 
+      m.status === 'Completed' || m.status === 'completed'
+    ).length;
+    
+    const upcomingMeetings = allMeetings.filter(m => 
+      m.status === 'Scheduled' || m.status === 'scheduled' || m.status === 'upcoming'
+    ).length;
+    
+    const postponedMeetings = allMeetings.filter(m => 
+      m.status === 'Cancelled' || m.status === 'cancelled' || m.status === 'postponed'
+    ).length;
+
+    return { completedMeetings, upcomingMeetings, postponedMeetings };
+  };
+
+  const meetingStats = calculateMeetingStats();
+
+  // Quick actions based on user role (UNCHANGED)
+  const allQuickActions = [
     {
-      title: 'Mentee Registration',
-      description: 'Register as a mentee to find your ideal mentor',
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-          <circle cx="12" cy="7" r="4"></circle>
-        </svg>
-      ),
+      id: 1,
+      title: 'Register New Mentee',
+      description: 'Add a new mentee to the program',
+      icon: '👤',
       path: '/menteeregistration',
-      gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
+      color: '#3b82f6',
+      roles: ['new_user']
     },
     {
-      title: 'Mentor Registration',
-      description: 'Sign up as a mentor to guide students',
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-          <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-        </svg>
-      ),
+      id: 2,
+      title: 'Register New Mentor',
+      description: 'Add a new mentor to the program',
+      icon: '🎓',
       path: '/mentorregistration',
-      gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
+      color: '#8b5cf6',
+      roles: ['new_user']
     },
     {
-      title: 'Mentee-Mentor Assignment',
-      description: 'Assign mentees to their mentors',
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-          <circle cx="9" cy="7" r="4"></circle>
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-        </svg>
-      ),
+      id: 3,
+      title: 'Assign Mentee to Mentor',
+      description: 'Assign mentees to available mentors',
+      icon: '🤝',
       path: '/menteementor_assign',
-      gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+      color: '#10b981',
+      roles: ['coordinator', 'admin']
     },
     {
-      title: 'Mentor Scheduling',
+      id: 4,
+      title: 'Schedule Meeting',
       description: 'Schedule mentorship sessions',
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="16" y1="2" x2="16" y2="6"></line>
-          <line x1="8" y1="2" x2="8" y2="6"></line>
-          <line x1="3" y1="10" x2="21" y2="10"></line>
-        </svg>
-      ),
+      icon: '📅',
       path: '/mentor_scheduling',
-      gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+      color: '#f59e0b',
+      roles: ['mentor', 'admin']
     },
     {
-      title: 'Meeting Status Update',
-      description: 'Update the status of mentorship meetings',
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-          <polyline points="22 4 12 14.01 9 11.01"></polyline>
-        </svg>
-      ),
-      path: '/meeting_updatation',
-      gradient: 'linear-gradient(135deg, #ec4899 0%, #db2777 100%)'
+      id: 5,
+      title: 'View Scheduled Meetings',
+      description: 'View all scheduled meetings',
+      icon: '📋',
+      path: '/scheduled_dashboard',
+      color: '#8b5cf6',
+      roles: ['mentee', 'mentor', 'admin']
     },
     {
+      id: 6,
       title: 'Program Feedback',
-      description: 'Share your feedback about the program',
-      icon: (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-      ),
+      description: 'Collect and view program feedback',
+      icon: '💬',
       path: '/program_feedback',
-      gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)'
+      color: '#ec4899',
+      roles: ['mentee', 'mentor', 'coordinator', 'admin']
+    },
+    {
+      id: 7,
+      title: 'Phase Management',
+      description: 'Manage mentorship phases and semesters',
+      icon: '📊',
+      path: '/admin_dashboard',
+      color: '#8b5cf6',
+      roles: ['coordinator', 'admin']
+    },
+    {
+      id: 8,
+      title: 'Mentorship Dashboard',
+      description: 'Detailed analytics and reports',
+      icon: '📈',
+      path: '/mentorship-dashboard',
+      color: '#8b5cf6',
+      roles: ['coordinator', 'admin']
+    },
+    {
+      id: 9,
+      title: 'Coordinator Dashboard',
+      description: 'Advanced analytics and management tools',
+      icon: '🏢',
+      path: '/co-ordinator',
+      color: '#ef4444',
+      roles: ['coordinator', 'admin']
     }
   ];
 
-  return (
-    <div style={styles.wrapper}>
-      <div style={styles.container}>
-        {/* Header */}
-        <div style={styles.header}>
-          <div style={styles.logo}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: '40px', height: '40px', color: 'white'}}>
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-            </svg>
-          </div>
-          <h1 style={styles.title}>APEX Mentorship Program</h1>
-          <p style={styles.subtitle}>Navigate through the mentorship journey</p>
-        </div>
+  // Filter quick actions based on user role (UNCHANGED)
+  const getFilteredQuickActions = () => {
+    return allQuickActions.filter(action => 
+      action.roles.includes(userRole)
+    );
+  };
 
-        {/* Dashboard Cards Grid */}
-        <div style={styles.grid}>
-          {dashboardCards.map((card, index) => (
-            <div
-              key={index}
-              style={styles.card}
-              onClick={() => handleNavigate(card.path)}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-8px)';
-                e.currentTarget.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.15)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.1)';
-              }}
-            >
-              <div style={{...styles.cardIcon, background: card.gradient}}>
-                <div style={{width: '32px', height: '32px', color: 'white'}}>
-                  {card.icon}
+  const quickActions = getFilteredQuickActions();
+
+  // Handle quick action click (UNCHANGED)
+  const handleQuickActionClick = (action) => {
+    if (action.id === 5 && userEmail) {
+      navigate(`/scheduled_dashboard/${encodeURIComponent(userEmail)}`);
+    } else {
+      navigate(action.path);
+    }
+  };
+
+  // Carousel navigation functions
+  const nextSession = () => {
+    setCurrentSessionIndex((prevIndex) => 
+      prevIndex === filteredSessionsByStatus.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  const prevSession = () => {
+    setCurrentSessionIndex((prevIndex) => 
+      prevIndex === 0 ? filteredSessionsByStatus.length - 1 : prevIndex - 1
+    );
+  };
+
+  const goToSession = (index) => {
+    setCurrentSessionIndex(index);
+  };
+
+  const nextMentor = () => {
+    setCurrentMentorIndex((prevIndex) => 
+      prevIndex === filteredMentorCapacity.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  const prevMentor = () => {
+    setCurrentMentorIndex((prevIndex) => 
+      prevIndex === 0 ? filteredMentorCapacity.length - 1 : prevIndex - 1
+    );
+  };
+
+  const goToMentor = (index) => {
+    setCurrentMentorIndex(index);
+  };
+
+  // Helper functions
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'completed': return { background: '#dcfce7', color: '#166534', border: '#bbf7d0' };
+      case 'upcoming': 
+      case 'scheduled': return { background: '#dbeafe', color: '#1e40af', border: '#bfdbfe' };
+      case 'postponed': 
+      case 'cancelled': return { background: '#fef3c7', color: '#92400e', border: '#fde68a' };
+      case 'active': return { background: '#f0f9ff', color: '#0369a1', border: '#bae6fd' };
+      default: return { background: '#f3f4f6', color: '#374151', border: '#e5e7eb' };
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch(status) {
+      case 'completed': return '✓';
+      case 'upcoming': 
+      case 'scheduled': return '📅';
+      case 'postponed': 
+      case 'cancelled': return '⏸';
+      case 'active': return '🔥';
+      default: return '•';
+    }
+  };
+
+  const getPhaseStatusColor = (status) => {
+    switch(status) {
+      case 'completed': return '#10b981';
+      case 'active': return '#3b82f6';
+      case 'upcoming': return '#f59e0b';
+      default: return '#6b7280';
+    }
+  };
+
+  const getCapacityColor = (count, max) => {
+    const percentage = (count / max) * 100;
+    if (percentage >= 70) return '#f59e0b';
+    return '#10b981';
+  };
+
+  const getRoleColor = (role) => {
+    switch(role) {
+      case 'coordinator': return '#8b5cf6';
+      case 'mentor': return '#3b82f6';
+      case 'mentee': return '#10b981';
+      case 'new_user': return '#f59e0b';
+      case 'admin': return '#ef4444';
+      default: return '#6b7280';
+    }
+  };
+
+  const getRoleDisplayName = (role) => {
+    switch(role) {
+      case 'coordinator': return 'Coordinator';
+      case 'mentor': return 'Mentor';
+      case 'mentee': return 'Mentee';
+      case 'new_user': return 'New User';
+      case 'admin': return 'Admin';
+      default: return role;
+    }
+  };
+
+  // Format time since last update
+  const formatTimeSince = (date) => {
+    if (!date) return 'Never';
+    const now = new Date();
+    const diffMs = now - new Date(date);
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    
+    if (diffSec < 60) return `${diffSec} seconds ago`;
+    if (diffMin < 60) return `${diffMin} minutes ago`;
+    return new Date(date).toLocaleTimeString();
+  };
+
+  if (loading) {
+    return (
+      <div className="mentorship-dashboard-wrapper">
+        <div className="dashboard-loading-container">
+          <div className="dashboard-spinner"></div>
+          <p>Loading real-time dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mentorship-dashboard-wrapper">
+      <div className="dashboard-animated-bg">
+        <div className="dashboard-gradient-orb dashboard-orb-1"></div>
+        <div className="dashboard-gradient-orb dashboard-orb-2"></div>
+        <div className="dashboard-gradient-orb dashboard-orb-3"></div>
+      </div>
+      
+      {/* ADDED: Real-time Refresh Button */}
+      <div className="real-time-refresh-button">
+        <button 
+          className="refresh-btn" 
+          onClick={handleManualRefresh}
+          disabled={isRefreshing}
+          title="Refresh all data"
+        >
+          {isRefreshing ? (
+            <span className="spinner-icon">⟳</span>
+          ) : (
+            <span className="refresh-icon">⟳</span>
+          )}
+          <span className="refresh-text">
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </span>
+        </button>
+        {lastUpdated && (
+          <div className="last-updated">
+            Updated: {formatTimeSince(lastUpdated)}
+          </div>
+        )}
+      </div>
+      
+      {/* ADDED: Phase Management Button (Floating) */}
+      {isCoordinator() && (
+        <button 
+          className="phase-management-button" 
+          onClick={handlePhaseButtonClick}
+          title="Manage Phases"
+        >
+          <span className="phase-button-icon">📊</span>
+          <span className="phase-button-text">Phase Management</span>
+        </button>
+      )}
+      
+      <div className="dashboard-container">
+        {/* Header with Logout */}
+        <div className="dashboard-header">
+          <div className="dashboard-header-content">
+            <div className="dashboard-logo-section">
+              <div className="dashboard-logo">M</div>
+              <div className="dashboard-header-text">
+                <h1 className="dashboard-title">Real-time Mentorship Dashboard</h1>
+                <p className="dashboard-subtitle">Live tracking with real-time updates</p>
+                <div className="realtime-indicator">
+                  <span className="realtime-dot"></span>
+                  <span className="realtime-text">LIVE DATA</span>
                 </div>
               </div>
-              <h3 style={styles.cardTitle}>{card.title}</h3>
-              <p style={styles.cardDescription}>{card.description}</p>
-              <div style={styles.cardArrow}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: '18px', height: '18px', color: '#8b5cf6'}}>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                  <polyline points="12 5 19 12 12 19"></polyline>
-                </svg>
-              </div>
             </div>
-          ))}
+            
+            <div className="dashboard-user-info-section">
+              <div className="dashboard-user-info-left">
+                <div className="dashboard-user-role-badge" style={{ background: getRoleColor(userRole) }}>
+                  {getRoleDisplayName(userRole)}
+                </div>
+                {userEmail && (
+                  <div className="dashboard-user-email">
+                    <span className="dashboard-email-label">Logged in as:</span>
+                    <span className="dashboard-email-value">{userEmail}</span>
+                  </div>
+                )}
+              </div>
+              <button className="dashboard-logout-btn" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
 
-        
+        {/* Stats Cards - REAL-TIME */}
+        <div className="dashboard-stats-grid">
+          <div className="dashboard-stat-card realtime-card">
+            <div className="realtime-badge">LIVE</div>
+            <div className="dashboard-stat-icon">
+              <span>👨‍🏫</span>
+            </div>
+            <div className="dashboard-stat-content">
+              <div className="dashboard-stat-value">{dashboardStats.totalMentors}</div>
+              <div className="dashboard-stat-label">Active Mentors</div>
+              <div className="dashboard-stat-subtext">
+                <span className="new-count">+{dashboardStats.newMentorsThisWeek} new this week</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card realtime-card">
+            <div className="realtime-badge">LIVE</div>
+            <div className="dashboard-stat-icon">
+              <span>👨‍🎓</span>
+            </div>
+            <div className="dashboard-stat-content">
+              <div className="dashboard-stat-value">{dashboardStats.totalMentees}</div>
+              <div className="dashboard-stat-label">Active Mentees</div>
+              <div className="dashboard-stat-subtext">
+                <span className="new-count">+{dashboardStats.newMenteesThisWeek} new this week</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card realtime-card">
+            <div className="realtime-badge">LIVE</div>
+            <div className="dashboard-stat-icon">
+              <span>✅</span>
+            </div>
+            <div className="dashboard-stat-content">
+              <div className="dashboard-stat-value">{meetingStats.completedMeetings}</div>
+              <div className="dashboard-stat-label">Completed Meetings</div>
+              <div className="dashboard-stat-subtext">From {allMeetings.length} total meetings</div>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card realtime-card">
+            <div className="realtime-badge">LIVE</div>
+            <div className="dashboard-stat-icon">
+              <span>📅</span>
+            </div>
+            <div className="dashboard-stat-content">
+              <div className="dashboard-stat-value">{meetingStats.upcomingMeetings}</div>
+              <div className="dashboard-stat-label">Upcoming Meetings</div>
+              <div className="dashboard-stat-subtext">
+                {dashboardStats.upcomingMeetings} from stats API
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card realtime-card">
+            <div className="realtime-badge">LIVE</div>
+            <div className="dashboard-stat-icon">
+              <span>⏸️</span>
+            </div>
+            <div className="dashboard-stat-content">
+              <div className="dashboard-stat-value">{meetingStats.postponedMeetings}</div>
+              <div className="dashboard-stat-label">Cancelled/Postponed</div>
+              <div className="dashboard-stat-subtext">From real-time meeting data</div>
+            </div>
+          </div>
+
+          <div className="dashboard-stat-card realtime-card">
+            <div className="realtime-badge">LIVE</div>
+            <div className="dashboard-stat-icon">
+              <span>📝</span>
+            </div>
+            <div className="dashboard-stat-content">
+              <div className="dashboard-stat-value">{allFeedbacks.length}</div>
+              <div className="dashboard-stat-label">Feedbacks</div>
+              <div className="dashboard-stat-subtext">
+                {allFeedbacks.filter(f => f.role === 'mentor').length} mentors, 
+                {allFeedbacks.filter(f => f.role === 'mentee').length} mentees
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Semester Filter */}
+        <div className="dashboard-section-card">
+          <div className="dashboard-section-header">
+            <h2 className="dashboard-section-title">Select Phase</h2>
+            <div className="phase-count">
+              {mentorshipPhases.length} phase{mentorshipPhases.length !== 1 ? 's' : ''} total
+            </div>
+          </div>
+          <div className="dashboard-filter-buttons">
+            <button
+              onClick={() => setActivePhase('all')}
+              className={`dashboard-filter-btn ${activePhase === 'all' ? 'active' : ''}`}
+            >
+              All Phases
+            </button>
+            {mentorshipPhases.map(phase => (
+              <button
+                key={phase.id}
+                onClick={() => setActivePhase(phase.id)}
+                className={`dashboard-filter-btn ${activePhase === phase.id ? 'active' : ''}`}
+                style={activePhase === phase.id ? {
+                  background: getPhaseStatusColor(phase.status),
+                  color: 'white',
+                  borderColor: getPhaseStatusColor(phase.status)
+                } : {}}
+              >
+                {isMobile ? phase.name.replace(' ', '\n') : phase.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Program Semesters Performance - REAL-TIME */}
+        <div className="dashboard-section-card">
+          <div className="dashboard-section-header">
+            <div className="dashboard-title-section">
+              <h2 className="dashboard-section-title">
+                Program Phases Performance
+                {activePhase !== 'all' && ` - ${mentorshipPhases.find(p => p.id === activePhase)?.name}`}
+              </h2>
+              <p className="dashboard-section-subtitle">
+                {activePhase === 'all' 
+                  ? 'Real-time phase tracking with live data' 
+                  : `Showing live data for ${mentorshipPhases.find(p => p.id === activePhase)?.name}`
+                }
+              </p>
+            </div>
+          </div>
+          
+          {filteredPhases.length === 0 ? (
+            <div className="dashboard-empty-state">
+              <p className="dashboard-empty-text">No phases found in database</p>
+            </div>
+          ) : (
+            <div className="dashboard-phases-grid">
+              {filteredPhases.map(phase => {
+                // Calculate real-time phase-specific stats
+                const phaseMentors = allMentors.filter(m => 
+                  m.phaseId === phase.phaseId || m.phaseId === phase.id.replace('phase_', '')
+                );
+                const phaseMentees = allMentees.filter(m => 
+                  m.phaseId === phase.phaseId || m.phaseId === phase.id.replace('phase_', '')
+                );
+                const phaseAssignments = allAssignments.filter(a => 
+                  a.phaseId === phase.phaseId
+                );
+                const phaseMeetings = allMeetings.filter(m => {
+                  // Filter meetings based on mentor/mentee phase
+                  const mentorInPhase = phaseMentors.some(pm => pm.mentor_id === m.mentor_user_id);
+                  const menteesInPhase = m.mentee_user_ids?.some(menteeId => 
+                    phaseMentees.some(pm => pm.mentee_user_id === menteeId)
+                  );
+                  return mentorInPhase || menteesInPhase;
+                });
+                
+                const completedMeetings = phaseMeetings.filter(m => 
+                  m.status === 'completed' || m.status === 'Completed'
+                ).length;
+                const upcomingMeetings = phaseMeetings.filter(m => 
+                  m.status === 'scheduled' || m.status === 'Scheduled' || m.status === 'upcoming'
+                ).length;
+                const postponedMeetings = phaseMeetings.filter(m => 
+                  m.status === 'postponed' || m.status === 'Postponed' || 
+                  m.status === 'cancelled' || m.status === 'Cancelled'
+                ).length;
+                
+                return (
+                  <div 
+                    key={phase.id} 
+                    className={`dashboard-phase-card ${phase.status === 'active' ? 'active-phase' : ''}`}
+                  >
+                    <div className="dashboard-phase-header">
+                      <div className="dashboard-phase-title-row">
+                        <h3 className="dashboard-phase-name">{phase.name}</h3>
+                        <span 
+                          className="dashboard-phase-status" 
+                          style={{ background: getPhaseStatusColor(phase.status) }}
+                        >
+                          {phase.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="dashboard-phase-period">{phase.period}</p>
+                    </div>
+                    
+                    {/* Real-time stats */}
+                    <div className="dashboard-phase-stats-table">
+                      <div className="dashboard-phase-stat-box realtime-stat">
+                        <span className="dashboard-phase-stat-label">Mentors</span>
+                        <span className="dashboard-phase-stat-value">{phaseMentors.length}</span>
+                        <div className="realtime-change">
+                          {phaseMentors.length > 0 ? '✓' : '-'}
+                        </div>
+                      </div>
+                      <div className="dashboard-phase-stat-box realtime-stat">
+                        <span className="dashboard-phase-stat-label">Mentees</span>
+                        <span className="dashboard-phase-stat-value">{phaseMentees.length}</span>
+                        <div className="realtime-change">
+                          {phaseMentees.length > 0 ? '✓' : '-'}
+                        </div>
+                      </div>
+                      <div className="dashboard-phase-stat-box realtime-stat">
+                        <span className="dashboard-phase-stat-label">Assignments</span>
+                        <span className="dashboard-phase-stat-value">{phaseAssignments.length}</span>
+                        <div className="realtime-change">
+                          {phaseAssignments.length > 0 ? '✓' : '-'}
+                        </div>
+                      </div>
+                      <div className="dashboard-phase-stat-box realtime-stat">
+                        <span className="dashboard-phase-stat-label">Meetings</span>
+                        <span className="dashboard-phase-stat-value">{phaseMeetings.length}</span>
+                        <div className="realtime-change">
+                          {phaseMeetings.length > 0 ? '✓' : '-'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Meeting breakdown */}
+                    <div className="meeting-breakdown">
+                      <div className="breakdown-item completed">
+                        <span className="breakdown-label">Completed</span>
+                        <span className="breakdown-value">{completedMeetings}</span>
+                      </div>
+                      <div className="breakdown-item upcoming">
+                        <span className="breakdown-label">Upcoming</span>
+                        <span className="breakdown-value">{upcomingMeetings}</span>
+                      </div>
+                      <div className="breakdown-item postponed">
+                        <span className="breakdown-label">Postponed</span>
+                        <span className="breakdown-value">{postponedMeetings}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Current Semester Mentors - REAL-TIME */}
+        <div className="dashboard-section-card">
+          <div className="dashboard-section-header">
+            <div className="dashboard-title-section">
+              <h2 className="dashboard-section-title">Current Mentors ({allMentors.length})</h2>
+              <p className="dashboard-section-subtitle">
+                Live mentor capacity tracking - {allAssignments.length} active assignments
+                {searchMentor && ` - Filtered by "${searchMentor}"`}
+              </p>
+            </div>
+            
+            <div className="dashboard-search-box">
+              <input
+                type="text"
+                placeholder="Search mentor..."
+                value={searchMentor}
+                onChange={(e) => setSearchMentor(e.target.value)}
+                className="dashboard-search-input"
+              />
+              {searchMentor && (
+                <button onClick={() => setSearchMentor('')} className="dashboard-clear-search">
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {filteredMentorCapacity.length === 0 ? (
+            <div className="dashboard-empty-state">
+              <p className="dashboard-empty-text">
+                {searchMentor ? 'No mentors found' : 'No mentor capacity data yet'}
+              </p>
+            </div>
+          ) : (
+            <div className="mentor-carousel">
+              <div className="dashboard-carousel-header">
+                <div className="dashboard-carousel-info">
+                  <span className="dashboard-carousel-counter">
+                    {searchMentor 
+                      ? `Found ${filteredMentorCapacity.length} mentor${filteredMentorCapacity.length !== 1 ? 's' : ''}` 
+                      : `Mentor ${currentMentorIndex + 1} of ${filteredMentorCapacity.length}`
+                    }
+                  </span>
+                </div>
+                {!searchMentor && filteredMentorCapacity.length > 1 && (
+                  <div className="dashboard-carousel-controls">
+                    <button onClick={prevMentor} className="dashboard-carousel-btn">‹</button>
+                    <button onClick={nextMentor} className="dashboard-carousel-btn">›</button>
+                  </div>
+                )}
+              </div>
+
+              <div className="dashboard-mentor-cards">
+                {searchMentor ? (
+                  filteredMentorCapacity.map((mentor) => (
+                    <div key={mentor.id} className="dashboard-mentor-card realtime-card">
+                      <h3 className="dashboard-mentor-name">{mentor.name}</h3>
+                      <div className="dashboard-capacity-meter">
+                        <div className="dashboard-capacity-info">
+                          <span className="dashboard-capacity-count">{mentor.menteeCount}/{mentor.maxCapacity} mentees</span>
+                          <span className="dashboard-capacity-percentage">
+                            {Math.round((mentor.menteeCount / mentor.maxCapacity) * 100)}% capacity
+                          </span>
+                        </div>
+                        <div className="dashboard-progress-bar">
+                          <div 
+                            className="dashboard-progress-fill"
+                            style={{
+                              width: `${Math.min((mentor.menteeCount / mentor.maxCapacity) * 100, 100)}%`,
+                              background: getCapacityColor(mentor.menteeCount, mentor.maxCapacity)
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="dashboard-mentor-stats">
+                        <div className="dashboard-stat-item">
+                          <span className="dashboard-stat-label">Sessions Completed</span>
+                          <span className="dashboard-stat-value">{mentor.sessionsCompleted}</span>
+                        </div>
+                        <div className="dashboard-stat-item">
+                          <span className="dashboard-stat-label">Upcoming Sessions</span>
+                          <span className="dashboard-stat-value">{mentor.sessionsUpcoming}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  filteredMentorCapacity.map((mentor, index) => (
+                    <div
+                      key={mentor.id}
+                      className={`dashboard-mentor-card ${index === currentMentorIndex ? 'active' : 'inactive'} realtime-card`}
+                    >
+                      <h3 className="dashboard-mentor-name">{mentor.name}</h3>
+                      <div className="dashboard-capacity-meter">
+                        <div className="dashboard-capacity-info">
+                          <span className="dashboard-capacity-count">{mentor.menteeCount}/{mentor.maxCapacity} mentees</span>
+                          <span className="dashboard-capacity-percentage">
+                            {Math.round((mentor.menteeCount / mentor.maxCapacity) * 100)}% capacity
+                          </span>
+                        </div>
+                        <div className="dashboard-progress-bar">
+                          <div 
+                            className="dashboard-progress-fill"
+                            style={{
+                              width: `${Math.min((mentor.menteeCount / mentor.maxCapacity) * 100, 100)}%`,
+                              background: getCapacityColor(mentor.menteeCount, mentor.maxCapacity)
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="dashboard-mentor-stats">
+                        <div className="dashboard-stat-item">
+                          <span className="dashboard-stat-label">Sessions Completed</span>
+                          <span className="dashboard-stat-value">{mentor.sessionsCompleted}</span>
+                        </div>
+                        <div className="dashboard-stat-item">
+                          <span className="dashboard-stat-label">Upcoming Sessions</span>
+                          <span className="dashboard-stat-value">{mentor.sessionsUpcoming}</span>
+                        </div>
+                      </div>
+                      <div className="mentor-mentees-list">
+                        <span className="mentee-label">Mentees:</span>
+                        {mentor.mentees.length > 0 ? (
+                          <div className="mentee-tags">
+                            {mentor.mentees.slice(0, 3).map((mentee, idx) => (
+                              <span key={idx} className="mentee-tag">{mentee}</span>
+                            ))}
+                            {mentor.mentees.length > 3 && (
+                              <span className="mentee-more">+{mentor.mentees.length - 3} more</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="no-mentees">No mentees assigned</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {!searchMentor && filteredMentorCapacity.length > 1 && (
+                <div className="dashboard-carousel-indicators">
+                  {filteredMentorCapacity.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => goToMentor(index)}
+                      className={`dashboard-carousel-indicator ${index === currentMentorIndex ? 'active' : ''}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* All Sessions - REAL-TIME */}
+        <div className="dashboard-section-card">
+          <div className="dashboard-section-header">
+            <div className="dashboard-title-section">
+              <h2 className="dashboard-section-title">All Sessions ({allMeetings.length})</h2>
+              <div className="dashboard-session-count">
+                {filteredSessionsByStatus.length} session{filteredSessionsByStatus.length !== 1 ? 's' : ''} found • 
+                {meetingStats.completedMeetings} completed • 
+                {meetingStats.upcomingMeetings} upcoming
+              </div>
+            </div>
+            
+            <div className="dashboard-filter-buttons">
+              <button
+                onClick={() => setFilterStatus('all')}
+                className={`dashboard-filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
+              >
+                All ({allMeetings.length})
+              </button>
+              <button
+                onClick={() => setFilterStatus('completed')}
+                className={`dashboard-filter-btn ${filterStatus === 'completed' ? 'active' : ''}`}
+              >
+                Completed ({meetingStats.completedMeetings})
+              </button>
+              <button
+                onClick={() => setFilterStatus('scheduled')}
+                className={`dashboard-filter-btn ${filterStatus === 'scheduled' ? 'active' : ''}`}
+              >
+                Scheduled ({meetingStats.upcomingMeetings})
+              </button>
+              <button
+                onClick={() => setFilterStatus('cancelled')}
+                className={`dashboard-filter-btn ${filterStatus === 'cancelled' ? 'active' : ''}`}
+              >
+                Cancelled ({meetingStats.postponedMeetings})
+              </button>
+            </div>
+          </div>
+
+          {filteredSessionsByStatus.length === 0 ? (
+            <div className="dashboard-empty-state">
+              <p className="dashboard-empty-text">No sessions found for this filter</p>
+            </div>
+          ) : (
+            <div className="sessions-carousel">
+              <div className="dashboard-carousel-header">
+                <div className="dashboard-carousel-info">
+                  <span className="dashboard-carousel-counter">
+                    Session {currentSessionIndex + 1} of {filteredSessionsByStatus.length}
+                  </span>
+                </div>
+                {filteredSessionsByStatus.length > 1 && (
+                  <div className="dashboard-carousel-controls">
+                    <button onClick={prevSession} className="dashboard-carousel-btn">‹</button>
+                    <button onClick={nextSession} className="dashboard-carousel-btn">›</button>
+                  </div>
+                )}
+              </div>
+
+              <div className="dashboard-session-cards">
+                {filteredSessionsByStatus.map((session, index) => (
+                  <div
+                    key={session.id}
+                    className={`dashboard-session-card ${index === currentSessionIndex ? 'active' : 'inactive'} realtime-card`}
+                  >
+                    <div className="dashboard-session-header">
+                      <div className="dashboard-session-icon">
+                        {getStatusIcon(session.status)}
+                      </div>
+                      <div className="dashboard-session-info">
+                        <h3 className="dashboard-session-topic">{session.topic}</h3>
+                        <p className="dashboard-session-details">
+                          {new Date(session.date).toLocaleDateString()} • {session.time} • {session.duration}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="dashboard-session-content">
+                      <div className="dashboard-participants">
+                        <div className="dashboard-participant">
+                          <span className="dashboard-participant-role">Mentor:</span>
+                          <span className="dashboard-participant-name">{session.mentorName}</span>
+                        </div>
+                        <div className="dashboard-participant">
+                          <span className="dashboard-participant-role">Mentee:</span>
+                          <span className="dashboard-participant-name">{session.menteeName}</span>
+                        </div>
+                      </div>
+                      <div className="dashboard-session-status" style={getStatusColor(session.status)}>
+                        {session.status}
+                      </div>
+                    </div>
+                    
+                    <div className="session-meta">
+                      <span className="meta-item">{session.meetingType}</span>
+                      <span className="meta-item">Phase: {session.phase}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {filteredSessionsByStatus.length > 1 && (
+                <div className="dashboard-carousel-indicators">
+                  {filteredSessionsByStatus.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => goToSession(index)}
+                      className={`dashboard-carousel-indicator ${index === currentSessionIndex ? 'active' : ''}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Actions - UNCHANGED */}
+        <div className="dashboard-section-card">
+          <div className="dashboard-section-header">
+            <h2 className="dashboard-section-title">Quick Actions</h2>
+            <p className="dashboard-section-subtitle">
+              Quick access for {getRoleDisplayName(userRole)} role
+            </p>
+          </div>
+          
+          {quickActions.length === 0 ? (
+            <div className="dashboard-empty-state">
+              <p className="dashboard-empty-text">No actions available for your role</p>
+            </div>
+          ) : (
+            <div className="dashboard-quick-actions-grid">
+              {quickActions.map((action) => (
+                <div 
+                  key={action.id} 
+                  className="dashboard-quick-action-card"
+                  onClick={() => handleQuickActionClick(action)}
+                  style={{ borderTop: `4px solid ${action.color}` }}
+                >
+                  <div className="dashboard-action-icon" style={{ color: action.color }}>
+                    {action.icon}
+                  </div>
+                  <div className="dashboard-action-content">
+                    <h3 className="dashboard-action-title">{action.title}</h3>
+                    <p className="dashboard-action-description">{action.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="dashboard-footer">
+          <p>Real-time Mentorship Dashboard • Data auto-refreshes every 30 seconds</p>
+          <div className="refresh-info">
+            <span className="refresh-interval">Stats: 30s</span>
+            <span className="refresh-interval">Mentors: 60s</span>
+            <span className="refresh-interval">Meetings: 30s</span>
+            <span className="refresh-interval">Assignments: 2m</span>
+          </div>
+          {lastUpdated && (
+            <p className="last-update-footer">
+              Last updated: {new Date(lastUpdated).toLocaleString()}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
 }
-
-const styles = {
-  wrapper: {
-    minHeight: '100vh',
-    width: '100%',
-    background: 'linear-gradient(180deg, #e9d5ff 0%, #f3e8ff 30%, #e0e7ff 60%, #dbeafe 100%)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: '60px 20px',
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
-  },
-  container: {
-    width: '100%',
-    maxWidth: '1200px'
-  },
-  header: {
-    textAlign: 'center',
-    marginBottom: '48px'
-  },
-  logo: {
-    width: '80px',
-    height: '80px',
-    background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-    borderRadius: '24px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '0 auto 28px',
-    boxShadow: '0 10px 30px rgba(139, 92, 246, 0.4)'
-  },
-  title: {
-    fontSize: '2.5em',
-    fontWeight: '800',
-    background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
-    WebkitBackgroundClip: 'text',
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text',
-    marginBottom: '12px',
-    margin: '0 0 12px 0'
-  },
-  subtitle: {
-    color: '#6b7280',
-    fontSize: '1.1em',
-    fontWeight: '400',
-    margin: 0
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '28px',
-    marginBottom: '40px'
-  },
-  card: {
-    background: 'white',
-    borderRadius: '20px',
-    padding: '36px 32px',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    position: 'relative',
-    overflow: 'hidden'
-  },
-  cardIcon: {
-    width: '64px',
-    height: '64px',
-    borderRadius: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: '20px',
-    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)'
-  },
-  cardTitle: {
-    fontSize: '1.3em',
-    fontWeight: '700',
-    color: '#1f2937',
-    marginBottom: '12px',
-    margin: '0 0 12px 0'
-  },
-  cardDescription: {
-    fontSize: '0.95em',
-    color: '#6b7280',
-    lineHeight: '1.6',
-    marginBottom: '16px',
-    margin: '0 0 16px 0'
-  },
-  cardArrow: {
-    width: '32px',
-    height: '32px',
-    borderRadius: '50%',
-    background: '#f3f4f6',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: '8px',
-    transition: 'all 0.3s ease'
-  },
-  footer: {
-    textAlign: 'center',
-    fontSize: '0.9em',
-    color: '#6b7280',
-    fontWeight: '500'
-  }
-};
