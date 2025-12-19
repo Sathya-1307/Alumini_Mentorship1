@@ -29,6 +29,7 @@ router.use("/meeting-status", require("./meetingStatusRoutes"));
 // Phase management routes
 router.use("/phases", require("./phaseRoutes"));
 router.use("/dashboard", require("./dashboardRoutes"));
+router.use("/homedashboard", require("./homeDashboardRoutes"));
 
 // REMINDER ROUTES - NEW
 router.use("/reminders", require("./reminderRoutes"));
@@ -64,6 +65,7 @@ router.use((req, res) => {
       "/api/meeting-status",
       "/api/phases",
       "/api/dashboard",
+      "/api/homedashboard",
       "/api/reminders",
       "/api/health"
     ]
