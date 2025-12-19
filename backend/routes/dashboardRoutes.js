@@ -20,5 +20,10 @@ router.get("/meetings", dashboardController.getAllMeetings);
 
 // Get all feedbacks (for dashboard display)
 router.get("/feedbacks", dashboardController.getAllFeedbacks);
+// New Dashboard Routes
+router.get("/summary", dashboardController.getDashboardSummary);           // Main dashboard cards
+router.get("/phase-stats", dashboardController.getPhaseStatistics);        // Phase-wise statistics
+router.get("/mentor-interests", dashboardController.getMentorInterestsCarousel); // Mentor interests
+router.get("/upcoming-meetings", dashboardController.getUpcomingMeetings); // Upcoming meetings
 
 module.exports = router;

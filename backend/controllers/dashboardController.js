@@ -442,3 +442,397 @@ exports.debugUserData = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// controllers/dashboardController.js - ADD THESE NEW FUNCTIONS AT THE END
+
+// ==================== DASHBOARD SUMMARY (For Cards Display) ====================
+exports.getDashboardSummary = async (req, res) => {
+  try {
+    console.log("📊 Fetching dashboard summary...");
+    
+    const today = new Date();
+    const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    // Get all counts in parallel
+    const [
+      totalMentors,
+      totalMentees,
+      totalMeetings,
+      assignments
+    ] = await Promise.all([
+      MentorRegistration.countDocuments(),
+      MenteeRequest.countDocuments(),
+      MeetingSchedule.countDocuments(),
+      MentorMenteeAssignment.find()
+    ]);
+    
+    // Calculate assigned mentees
+    const assignedMentees = assignments.reduce((sum, assignment) => 
+      sum + assignment.mentee_user_ids.length, 0);
+    
+    // Get meeting status counts
+    const meetings = await MeetingSchedule.find();
+    let completedMeetings = 0;
+    let postponedMeetings = 0;
+    let upcomingMeetings = 0;
+    
+    for (const meeting of meetings) {
+      if (meeting.meeting_dates && meeting.meeting_dates.length > 0) {
+        for (const dateObj of meeting.meeting_dates) {
+          if (dateObj.meeting_id) {
+            const statusDoc = await MeetingStatus.findOne({ 
+              meeting_id: dateObj.meeting_id 
+            });
+            
+            if (statusDoc) {
+              if (statusDoc.status === 'Completed') completedMeetings++;
+              if (statusDoc.status === 'Postponed' || statusDoc.status === 'Cancelled') postponedMeetings++;
+            }
+          }
+          
+          // Check if meeting is upcoming
+          if (dateObj.date && new Date(dateObj.date) >= today) {
+            upcomingMeetings++;
+          }
+        }
+      }
+    }
+    
+    // Get phase-wise counts for graph
+    const phases = await Phase.find().sort({ phaseId: 1 });
+    const phaseData = await Promise.all(
+      phases.map(async (phase) => {
+        const [mentorCount, menteeCount] = await Promise.all([
+          MentorRegistration.countDocuments({ phaseId: phase.phaseId }),
+          MenteeRequest.countDocuments({ phaseId: phase.phaseId })
+        ]);
+        
+        return {
+          phaseId: phase.phaseId,
+          phaseName: phase.name,
+          mentors: mentorCount,
+          mentees: menteeCount,
+          total: mentorCount + menteeCount
+        };
+      })
+    );
+    
+    // Get mentor interests for carousel
+    const mentors = await MentorRegistration.find().limit(10);
+    const mentorInterests = await Promise.all(
+      mentors.map(async (mentor) => {
+        const user = await User.findById(mentor.mentor_id);
+        return {
+          name: user?.basic?.name || "Unknown Mentor",
+          interests: mentor.areas_of_interest || [],
+          phaseId: mentor.phaseId || "N/A"
+        };
+      })
+    );
+    
+    // Calculate percentages
+    const assignmentRate = totalMentees > 0 
+      ? ((assignedMentees / totalMentees) * 100).toFixed(1) 
+      : 0;
+      
+    const completionRate = totalMeetings > 0 
+      ? ((completedMeetings / totalMeetings) * 100).toFixed(1) 
+      : 0;
+
+    res.json({
+      success: true,
+      summary: {
+        // Key Metrics Cards
+        metrics: [
+          {
+            title: "Total Mentors",
+            value: totalMentors,
+            icon: "👨‍🏫",
+            color: "blue",
+            change: "+12%",
+            description: "Registered mentors"
+          },
+          {
+            title: "Total Mentees",
+            value: totalMentees,
+            icon: "👨‍🎓",
+            color: "green",
+            change: "+18%",
+            description: "Mentee requests"
+          },
+          {
+            title: "Assigned Mentees",
+            value: assignedMentees,
+            icon: "🤝",
+            color: "purple",
+            change: assignmentRate + "%",
+            description: "Successfully assigned"
+          },
+          {
+            title: "Total Meetings",
+            value: totalMeetings,
+            icon: "📅",
+            color: "orange",
+            change: completedMeetings + " completed",
+            description: "All scheduled meetings"
+          }
+        ],
+        
+        // Meeting Status Cards
+        meetingStats: [
+          {
+            title: "Completed Meetings",
+            value: completedMeetings,
+            icon: "✅",
+            color: "success",
+            rate: completionRate + "%",
+            description: "Successfully conducted"
+          },
+          {
+            title: "Upcoming Meetings",
+            value: upcomingMeetings,
+            icon: "⏰",
+            color: "warning",
+            description: "Scheduled for next 7 days"
+          },
+          {
+            title: "Postponed/Cancelled",
+            value: postponedMeetings,
+            icon: "⏸️",
+            color: "danger",
+            description: "Meetings rescheduled or cancelled"
+          }
+        ],
+        
+        // Phase-wise Data for Graph
+        phaseGraphData: {
+          phases: phaseData.map(p => p.phaseName),
+          mentors: phaseData.map(p => p.mentors),
+          mentees: phaseData.map(p => p.mentees)
+        },
+        
+        // Phase Cards for Carousel
+        phaseCards: phaseData.map(phase => ({
+          phaseId: phase.phaseId,
+          phaseName: phase.name,
+          mentors: phase.mentors,
+          mentees: phase.mentees,
+          total: phase.total,
+          mentorColor: getRandomColor(),
+          menteeColor: getRandomColor()
+        })),
+        
+        // Mentor Interests Carousel
+        mentorInterests: mentorInterests,
+        
+        // Statistics
+        statistics: {
+          assignmentRate: assignmentRate + "%",
+          completionRate: completionRate + "%",
+          mentorToMenteeRatio: totalMentors > 0 ? (totalMentees / totalMentors).toFixed(1) : 0,
+          upcomingMeetingsNext7Days: upcomingMeetings
+        },
+        
+        lastUpdated: new Date().toISOString()
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ Error fetching dashboard summary:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Helper function for random colors
+function getRandomColor() {
+  const colors = [
+    '#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', 
+    '#EF4444', '#06B6D4', '#8B5CF6', '#EC4899'
+  ];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+// ==================== GET PHASE-WISE STATISTICS ====================
+exports.getPhaseStatistics = async (req, res) => {
+  try {
+    const phases = await Phase.find().sort({ phaseId: 1 });
+    
+    const detailedStats = await Promise.all(
+      phases.map(async (phase) => {
+        const [mentors, mentees, assignments, meetings] = await Promise.all([
+          MentorRegistration.find({ phaseId: phase.phaseId }),
+          MenteeRequest.find({ phaseId: phase.phaseId }),
+          MentorMenteeAssignment.find({ phaseId: phase.phaseId }),
+          MeetingSchedule.find({ phaseId: phase.phaseId })
+        ]);
+        
+        // Calculate assigned mentees
+        const assignedMentees = assignments.reduce((sum, assignment) => 
+          sum + assignment.mentee_user_ids.length, 0);
+        
+        // Get meeting status counts
+        let completedMeetings = 0;
+        let upcomingMeetings = 0;
+        const today = new Date();
+        
+        for (const meeting of meetings) {
+          if (meeting.meeting_dates) {
+            for (const dateObj of meeting.meeting_dates) {
+              if (dateObj.meeting_id) {
+                const statusDoc = await MeetingStatus.findOne({ 
+                  meeting_id: dateObj.meeting_id 
+                });
+                if (statusDoc?.status === 'Completed') completedMeetings++;
+              }
+              
+              if (dateObj.date && new Date(dateObj.date) >= today) {
+                upcomingMeetings++;
+              }
+            }
+          }
+        }
+        
+        return {
+          phaseId: phase.phaseId,
+          phaseName: phase.name,
+          startDate: phase.startDate,
+          endDate: phase.endDate,
+          isActive: today >= phase.startDate && today <= phase.endDate,
+          stats: {
+            totalMentors: mentors.length,
+            totalMentees: mentees.length,
+            assignedMentees: assignedMentees,
+            assignmentRate: mentees.length > 0 
+              ? ((assignedMentees / mentees.length) * 100).toFixed(1) + "%"
+              : "0%",
+            totalMeetings: meetings.length,
+            completedMeetings: completedMeetings,
+            upcomingMeetings: upcomingMeetings,
+            completionRate: meetings.length > 0
+              ? ((completedMeetings / meetings.length) * 100).toFixed(1) + "%"
+              : "0%"
+          },
+          mentorList: await Promise.all(
+            mentors.slice(0, 3).map(async (mentor) => {
+              const user = await User.findById(mentor.mentor_id);
+              return {
+                name: user?.basic?.name || "Unknown",
+                interests: mentor.areas_of_interest || []
+              };
+            })
+          )
+        };
+      })
+    );
+    
+    res.json({
+      success: true,
+      phases: detailedStats
+    });
+    
+  } catch (err) {
+    console.error("❌ Error fetching phase statistics:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ==================== GET MENTOR INTERESTS CAROUSEL ====================
+exports.getMentorInterestsCarousel = async (req, res) => {
+  try {
+    const mentors = await MentorRegistration.find();
+    
+    // Group by area of interest
+    const interestCounts = {};
+    const mentorsByInterest = {};
+    
+    for (const mentor of mentors) {
+      const user = await User.findById(mentor.mentor_id);
+      const mentorName = user?.basic?.name || "Unknown Mentor";
+      
+      if (mentor.areas_of_interest && mentor.areas_of_interest.length > 0) {
+        for (const interest of mentor.areas_of_interest) {
+          if (!interestCounts[interest]) {
+            interestCounts[interest] = 0;
+            mentorsByInterest[interest] = [];
+          }
+          interestCounts[interest]++;
+          mentorsByInterest[interest].push({
+            name: mentorName,
+            phaseId: mentor.phaseId || "N/A"
+          });
+        }
+      }
+    }
+    
+    // Convert to array for carousel
+    const interestsArray = Object.entries(interestCounts)
+      .map(([interest, count]) => ({
+        interest,
+        count,
+        mentors: mentorsByInterest[interest].slice(0, 5), // Top 5 mentors per interest
+        color: getRandomColor()
+      }))
+      .sort((a, b) => b.count - a.count); // Sort by count descending
+    
+    res.json({
+      success: true,
+      interests: interestsArray,
+      totalInterests: Object.keys(interestCounts).length,
+      mostPopular: interestsArray.length > 0 ? interestsArray[0] : null
+    });
+    
+  } catch (err) {
+    console.error("❌ Error fetching mentor interests:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ==================== GET UPCOMING MEETINGS ====================
+exports.getUpcomingMeetings = async (req, res) => {
+  try {
+    const today = new Date();
+    const nextMonth = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    const meetings = await MeetingSchedule.find({
+      'meeting_dates.date': { 
+        $gte: today, 
+        $lte: nextMonth 
+      }
+    }).sort({ 'meeting_dates.date': 1 });
+    
+    const formattedMeetings = await Promise.all(
+      meetings.map(async (meeting) => {
+        const mentor = await User.findById(meeting.mentor_user_id);
+        const upcomingDates = meeting.meeting_dates
+          .filter(dateObj => dateObj.date && new Date(dateObj.date) >= today)
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .slice(0, 3); // Get next 3 upcoming dates
+        
+        return {
+          _id: meeting._id,
+          mentorName: mentor?.basic?.name || "Unknown Mentor",
+          menteeCount: meeting.mentee_user_ids.length,
+          nextMeeting: upcomingDates.length > 0 ? upcomingDates[0].date : null,
+          allUpcomingDates: upcomingDates.map(d => d.date),
+          platform: meeting.platform,
+          agenda: meeting.agenda || "No agenda specified"
+        };
+      })
+    );
+    
+    res.json({
+      success: true,
+      meetings: formattedMeetings,
+      next7Days: formattedMeetings.filter(m => {
+        if (!m.nextMeeting) return false;
+        const meetingDate = new Date(m.nextMeeting);
+        const weekFromNow = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+        return meetingDate <= weekFromNow;
+      }).length
+    });
+    
+  } catch (err) {
+    console.error("❌ Error fetching upcoming meetings:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

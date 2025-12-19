@@ -1,4 +1,4 @@
-// controllers/dashboardController.js
+// controllers/homeDashboardController.js
 const Phase = require("../models/Phase");
 const MenteeRequest = require("../models/MenteeRequest");
 const MentorRegistration = require("../models/MentorRegistration");
@@ -8,8 +8,8 @@ const MeetingStatus = require("../models/MeetingStatus");
 const ProgramFeedback = require("../models/ProgramFeedback");
 const User = require("../models/User");
 
-// ==================== GET DASHBOARD OVERVIEW ====================
-exports.getDashboardOverview = async (req, res) => {
+// ==================== GET HOME DASHBOARD OVERVIEW ====================
+exports.getHomeDashboardOverview = async (req, res) => {
   try {
     const { phaseId } = req.query;
     
@@ -134,7 +134,7 @@ exports.getDashboardOverview = async (req, res) => {
         date: m.meeting_dates?.[0]?.date,
         time: m.meeting_time,
         duration: m.duration_minutes,
-        status: 'upcoming', // Default, you'd check MeetingStatus
+        status: 'upcoming',
         topic: m.agenda || 'Mentorship Session'
       }));
 
@@ -179,13 +179,13 @@ exports.getDashboardOverview = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Dashboard error:', error);
-    res.status(500).json({ success: false, message: 'Error fetching dashboard data' });
+    console.error('Home Dashboard error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching home dashboard data' });
   }
 };
 
-// ==================== GET PHASE DETAILS ====================
-exports.getPhaseDetails = async (req, res) => {
+// ==================== GET PHASE DETAILS FOR HOME DASHBOARD ====================
+exports.getHomePhaseDetails = async (req, res) => {
   try {
     const { phaseId } = req.params;
     
@@ -231,7 +231,36 @@ exports.getPhaseDetails = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Phase details error:', error);
+    console.error('Home Phase details error:', error);
     res.status(500).json({ success: false, message: 'Error fetching phase details' });
+  }
+};
+
+// ==================== GET QUICK STATS FOR HOME DASHBOARD ====================
+exports.getHomeQuickStats = async (req, res) => {
+  try {
+    const [totalMentors, totalMentees, activeMeetings, pendingRequests] = await Promise.all([
+      MentorRegistration.countDocuments(),
+      MenteeRequest.countDocuments(),
+      MeetingSchedule.countDocuments({ 
+        'meeting_dates.0.date': { $gte: new Date() }
+      }),
+      MenteeRequest.countDocuments({ status: 'pending' })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        totalMentors,
+        totalMentees,
+        activeMeetings,
+        pendingRequests,
+        lastUpdated: new Date()
+      }
+    });
+
+  } catch (error) {
+    console.error('Quick stats error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching quick stats' });
   }
 };

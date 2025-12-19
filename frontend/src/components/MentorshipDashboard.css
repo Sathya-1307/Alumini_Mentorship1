@@ -2008,3 +2008,275 @@
     border: 1px solid #ddd;
   }
 }
+/* Phase Distribution Graph Styles */
+.phase-distribution-graph {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.graph-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+.graph-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.graph-legend {
+  display: flex;
+  gap: 15px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.legend-dot.mentor-dot {
+  background: #3b82f6;
+}
+
+.legend-dot.mentee-dot {
+  background: #10b981;
+}
+
+.graph-bars-container {
+  display: flex;
+  height: 250px;
+  margin-bottom: 20px;
+}
+
+.graph-y-axis {
+  width: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-right: 15px;
+}
+
+.y-axis-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 10px;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  white-space: nowrap;
+  height: 20px;
+  margin-top: -10px;
+}
+
+.y-axis-scale {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-right: 1px solid #e5e7eb;
+  padding-right: 8px;
+}
+
+.y-axis-tick {
+  position: relative;
+}
+
+.tick-label {
+  font-size: 11px;
+  color: #9ca3af;
+  position: relative;
+  top: 5px;
+}
+
+.graph-bars {
+  flex: 1;
+  display: flex;
+  gap: 30px;
+  align-items: flex-end;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.bar-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  height: 100%;
+}
+
+.bar-label {
+  font-size: 14px;
+  color: #4b5563;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.bars-container {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.bar {
+  border-radius: 4px 4px 0 0;
+  transition: all 0.3s ease;
+  position: relative;
+  min-height: 2px;
+  width: 50%;
+}
+
+.bar.mentor-bar {
+  background: linear-gradient(to top, #3b82f6, #60a5fa);
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.bar.mentee-bar {
+  background: linear-gradient(to top, #10b981, #34d399);
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.bar:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.bar-value {
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  background: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+}
+
+.graph-footer {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.graph-stats {
+  display: flex;
+  justify-content: space-around;
+  gap: 15px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+/* Placeholder for when no data is available */
+.graph-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+  color: #9ca3af;
+}
+
+.placeholder-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.placeholder-text {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #6b7280;
+}
+
+.placeholder-subtext {
+  font-size: 14px;
+  color: #9ca3af;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .graph-bars-container {
+    height: 200px;
+  }
+  
+  .graph-bars {
+    gap: 15px;
+  }
+  
+  .graph-stats {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .stat-item {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .stat-value {
+    font-size: 18px;
+  }
+}
+
+/* Update the image-based styling to match your screenshot */
+.graph-header {
+  position: relative;
+}
+
+/* Add degree labels as shown in image (if needed) */
+.degree-labels {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* If you want to show the exact values from the image */
+.graph-bars .bar-value {
+  font-size: 11px;
+  padding: 1px 4px;
+}

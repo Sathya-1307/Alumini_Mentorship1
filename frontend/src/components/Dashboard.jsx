@@ -16,9 +16,10 @@ export default function RealTimeDashboard() {
   const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchMentor, setSearchMentor] = useState('');
-  const [activePhase, setActivePhase] = useState('all');
+  const [activePhase, setActivePhase] = useState('');
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0);
   const [currentMentorIndex, setCurrentMentorIndex] = useState(0);
+  const [currentPhaseGraphIndex, setCurrentPhaseGraphIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [userRole, setUserRole] = useState('mentee');
   const [userEmail, setUserEmail] = useState('');
@@ -71,6 +72,13 @@ export default function RealTimeDashboard() {
   useEffect(() => {
     setCurrentMentorIndex(0);
   }, [searchMentor]);
+
+  // Set active phase to first phase when phases are loaded
+  useEffect(() => {
+    if (mentorshipPhases.length > 0 && !activePhase) {
+      setActivePhase(mentorshipPhases[0].id);
+    }
+  }, [mentorshipPhases, activePhase]);
 
   // Real-time data fetching functions
   const fetchDashboardStats = useCallback(async () => {
@@ -258,6 +266,23 @@ export default function RealTimeDashboard() {
     }
   }, [dashboardStats]);
 
+  // Calculate phase-wise mentor/mentee data for graph
+  const getPhaseGraphData = useCallback(() => {
+    if (!dashboardStats.phaseStats || dashboardStats.phaseStats.length === 0) {
+      return {
+        phases: ['Phase 1', 'Phase 2', 'Phase 3'],
+        mentors: [0, 0, 0],
+        mentees: [0, 0, 0]
+      };
+    }
+    
+    return {
+      phases: dashboardStats.phaseStats.map(phase => phase.phaseName || `Phase ${phase.phaseId}`),
+      mentors: dashboardStats.phaseStats.map(phase => phase.totalMentors || 0),
+      mentees: dashboardStats.phaseStats.map(phase => phase.totalMentees || 0)
+    };
+  }, [dashboardStats.phaseStats]);
+
   // Manual refresh function
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -300,9 +325,9 @@ export default function RealTimeDashboard() {
   });
 
   // Filter phases based on active phase filter
-  const filteredPhases = mentorshipPhases.filter(phase => 
-    activePhase === 'all' || phase.id === activePhase
-  );
+  const filteredPhases = activePhase ? mentorshipPhases.filter(phase => 
+    phase.id === activePhase
+  ) : [];
 
   // Filter mentor capacity data based on search
   const filteredMentorCapacity = mentorCapacityData.filter(mentor => 
@@ -390,15 +415,6 @@ export default function RealTimeDashboard() {
       description: 'Manage mentorship phases and semesters',
       icon: '📊',
       path: '/admin_dashboard',
-      color: '#8b5cf6',
-      roles: ['coordinator', 'admin']
-    },
-    {
-      id: 8,
-      title: 'Mentorship Dashboard',
-      description: 'Detailed analytics and reports',
-      icon: '📈',
-      path: '/mentorship-dashboard',
       color: '#8b5cf6',
       roles: ['coordinator', 'admin']
     },
@@ -539,6 +555,85 @@ export default function RealTimeDashboard() {
     return new Date(date).toLocaleTimeString();
   };
 
+  // Render phase distribution graph
+  const renderPhaseDistributionGraph = () => {
+    const graphData = getPhaseGraphData();
+    const maxValue = Math.max(...graphData.mentors, ...graphData.mentees, 1);
+    
+    return (
+      <div className="phase-distribution-graph">
+        <div className="graph-header">
+          <h3 className="graph-title">Phase-wise Distribution</h3>
+          <div className="graph-legend">
+            <div className="legend-item">
+              <div className="legend-dot mentor-dot"></div>
+              <span>Mentors</span>
+            </div>
+            <div className="legend-item">
+              <div className="legend-dot mentee-dot"></div>
+              <span>Mentees</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="graph-bars-container">
+          <div className="graph-y-axis">
+            <div className="y-axis-label">Count</div>
+            <div className="y-axis-scale">
+              {[Math.ceil(maxValue * 0.75), Math.ceil(maxValue * 0.5), Math.ceil(maxValue * 0.25), 0].map((value, idx) => (
+                <div key={idx} className="y-axis-tick">
+                  <span className="tick-label">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="graph-bars">
+            {graphData.phases.map((phase, index) => {
+              const mentorHeight = (graphData.mentors[index] / maxValue) * 100;
+              const menteeHeight = (graphData.mentees[index] / maxValue) * 100;
+              
+              return (
+                <div key={index} className="bar-group">
+                  <div className="bar-label">{phase}</div>
+                  <div className="bars-container">
+                    <div 
+                      className="bar mentor-bar"
+                      style={{ height: `${mentorHeight}%` }}
+                      title={`${graphData.mentors[index]} mentors`}
+                    >
+                      <span className="bar-value">{graphData.mentors[index]}</span>
+                    </div>
+                    <div 
+                      className="bar mentee-bar"
+                      style={{ height: `${menteeHeight}%` }}
+                      title={`${graphData.mentees[index]} mentees`}
+                    >
+                      <span className="bar-value">{graphData.mentees[index]}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        
+        <div className="graph-footer">
+          <div className="graph-stats">
+            <div className="stat-item">
+              <span className="stat-label">Total Mentors:</span>
+              <span className="stat-value">{graphData.mentors.reduce((a, b) => a + b, 0)}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Total Mentees:</span>
+              <span className="stat-value">{graphData.mentees.reduce((a, b) => a + b, 0)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="mentorship-dashboard-wrapper">
@@ -558,42 +653,6 @@ export default function RealTimeDashboard() {
         <div className="dashboard-gradient-orb dashboard-orb-3"></div>
       </div>
       
-      {/* ADDED: Real-time Refresh Button */}
-      <div className="real-time-refresh-button">
-        <button 
-          className="refresh-btn" 
-          onClick={handleManualRefresh}
-          disabled={isRefreshing}
-          title="Refresh all data"
-        >
-          {isRefreshing ? (
-            <span className="spinner-icon">⟳</span>
-          ) : (
-            <span className="refresh-icon">⟳</span>
-          )}
-          <span className="refresh-text">
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </span>
-        </button>
-        {lastUpdated && (
-          <div className="last-updated">
-            Updated: {formatTimeSince(lastUpdated)}
-          </div>
-        )}
-      </div>
-      
-      {/* ADDED: Phase Management Button (Floating) */}
-      {isCoordinator() && (
-        <button 
-          className="phase-management-button" 
-          onClick={handlePhaseButtonClick}
-          title="Manage Phases"
-        >
-          <span className="phase-button-icon">📊</span>
-          <span className="phase-button-text">Phase Management</span>
-        </button>
-      )}
-      
       <div className="dashboard-container">
         {/* Header with Logout */}
         <div className="dashboard-header">
@@ -601,12 +660,7 @@ export default function RealTimeDashboard() {
             <div className="dashboard-logo-section">
               <div className="dashboard-logo">M</div>
               <div className="dashboard-header-text">
-                <h1 className="dashboard-title">Real-time Mentorship Dashboard</h1>
-                <p className="dashboard-subtitle">Live tracking with real-time updates</p>
-                <div className="realtime-indicator">
-                  <span className="realtime-dot"></span>
-                  <span className="realtime-text">LIVE DATA</span>
-                </div>
+                <h1 className="dashboard-title"> Mentorship Dashboard</h1>
               </div>
             </div>
             
@@ -632,88 +686,66 @@ export default function RealTimeDashboard() {
         {/* Stats Cards - REAL-TIME */}
         <div className="dashboard-stats-grid">
           <div className="dashboard-stat-card realtime-card">
-            <div className="realtime-badge">LIVE</div>
             <div className="dashboard-stat-icon">
               <span>👨‍🏫</span>
             </div>
             <div className="dashboard-stat-content">
               <div className="dashboard-stat-value">{dashboardStats.totalMentors}</div>
               <div className="dashboard-stat-label">Active Mentors</div>
-              <div className="dashboard-stat-subtext">
-                <span className="new-count">+{dashboardStats.newMentorsThisWeek} new this week</span>
-              </div>
             </div>
           </div>
 
           <div className="dashboard-stat-card realtime-card">
-            <div className="realtime-badge">LIVE</div>
             <div className="dashboard-stat-icon">
               <span>👨‍🎓</span>
             </div>
             <div className="dashboard-stat-content">
               <div className="dashboard-stat-value">{dashboardStats.totalMentees}</div>
               <div className="dashboard-stat-label">Active Mentees</div>
-              <div className="dashboard-stat-subtext">
-                <span className="new-count">+{dashboardStats.newMenteesThisWeek} new this week</span>
-              </div>
             </div>
           </div>
 
           <div className="dashboard-stat-card realtime-card">
-            <div className="realtime-badge">LIVE</div>
             <div className="dashboard-stat-icon">
               <span>✅</span>
             </div>
             <div className="dashboard-stat-content">
               <div className="dashboard-stat-value">{meetingStats.completedMeetings}</div>
               <div className="dashboard-stat-label">Completed Meetings</div>
-              <div className="dashboard-stat-subtext">From {allMeetings.length} total meetings</div>
             </div>
           </div>
 
           <div className="dashboard-stat-card realtime-card">
-            <div className="realtime-badge">LIVE</div>
-            <div className="dashboard-stat-icon">
-              <span>📅</span>
-            </div>
-            <div className="dashboard-stat-content">
-              <div className="dashboard-stat-value">{meetingStats.upcomingMeetings}</div>
-              <div className="dashboard-stat-label">Upcoming Meetings</div>
-              <div className="dashboard-stat-subtext">
-                {dashboardStats.upcomingMeetings} from stats API
-              </div>
-            </div>
-          </div>
-
-          <div className="dashboard-stat-card realtime-card">
-            <div className="realtime-badge">LIVE</div>
             <div className="dashboard-stat-icon">
               <span>⏸️</span>
             </div>
             <div className="dashboard-stat-content">
               <div className="dashboard-stat-value">{meetingStats.postponedMeetings}</div>
               <div className="dashboard-stat-label">Cancelled/Postponed</div>
-              <div className="dashboard-stat-subtext">From real-time meeting data</div>
-            </div>
-          </div>
-
-          <div className="dashboard-stat-card realtime-card">
-            <div className="realtime-badge">LIVE</div>
-            <div className="dashboard-stat-icon">
-              <span>📝</span>
-            </div>
-            <div className="dashboard-stat-content">
-              <div className="dashboard-stat-value">{allFeedbacks.length}</div>
-              <div className="dashboard-stat-label">Feedbacks</div>
-              <div className="dashboard-stat-subtext">
-                {allFeedbacks.filter(f => f.role === 'mentor').length} mentors, 
-                {allFeedbacks.filter(f => f.role === 'mentee').length} mentees
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Semester Filter */}
+        {/* ========== NEW: PHASE DISTRIBUTION GRAPH ========== */}
+        <div className="dashboard-section-card">
+          <div className="dashboard-section-header">
+            <div className="dashboard-title-section">
+              <h2 className="dashboard-section-title">Mentors vs Mentees per Phase</h2>
+            </div>
+          </div>
+          
+          {dashboardStats.phaseStats && dashboardStats.phaseStats.length > 0 ? (
+            renderPhaseDistributionGraph()
+          ) : (
+            <div className="graph-placeholder">
+              <div className="placeholder-icon">📊</div>
+              <p className="placeholder-text">No phase data available yet</p>
+              <p className="placeholder-subtext">Add phases to see the distribution graph</p>
+            </div>
+          )}
+        </div>
+
+        {/* Phase Filter - REMOVED "All Phases" option */}
         <div className="dashboard-section-card">
           <div className="dashboard-section-header">
             <h2 className="dashboard-section-title">Select Phase</h2>
@@ -722,12 +754,6 @@ export default function RealTimeDashboard() {
             </div>
           </div>
           <div className="dashboard-filter-buttons">
-            <button
-              onClick={() => setActivePhase('all')}
-              className={`dashboard-filter-btn ${activePhase === 'all' ? 'active' : ''}`}
-            >
-              All Phases
-            </button>
             {mentorshipPhases.map(phase => (
               <button
                 key={phase.id}
@@ -745,18 +771,18 @@ export default function RealTimeDashboard() {
           </div>
         </div>
 
-        {/* Program Semesters Performance - REAL-TIME */}
+        {/* Program Phases Performance - REAL-TIME */}
         <div className="dashboard-section-card">
           <div className="dashboard-section-header">
             <div className="dashboard-title-section">
               <h2 className="dashboard-section-title">
                 Program Phases Performance
-                {activePhase !== 'all' && ` - ${mentorshipPhases.find(p => p.id === activePhase)?.name}`}
+                {activePhase && mentorshipPhases.find(p => p.id === activePhase) && ` - ${mentorshipPhases.find(p => p.id === activePhase).name}`}
               </h2>
               <p className="dashboard-section-subtitle">
-                {activePhase === 'all' 
-                  ? 'Real-time phase tracking with live data' 
-                  : `Showing live data for ${mentorshipPhases.find(p => p.id === activePhase)?.name}`
+                {activePhase && mentorshipPhases.find(p => p.id === activePhase) 
+                  ? `Showing live data for ${mentorshipPhases.find(p => p.id === activePhase).name}` 
+                  : 'Select a phase to view data'
                 }
               </p>
             </div>
@@ -764,7 +790,9 @@ export default function RealTimeDashboard() {
           
           {filteredPhases.length === 0 ? (
             <div className="dashboard-empty-state">
-              <p className="dashboard-empty-text">No phases found in database</p>
+              <p className="dashboard-empty-text">
+                {activePhase ? 'No data found for selected phase' : 'Please select a phase'}
+              </p>
             </div>
           ) : (
             <div className="dashboard-phases-grid">
@@ -833,13 +861,7 @@ export default function RealTimeDashboard() {
                           {phaseMentees.length > 0 ? '✓' : '-'}
                         </div>
                       </div>
-                      <div className="dashboard-phase-stat-box realtime-stat">
-                        <span className="dashboard-phase-stat-label">Assignments</span>
-                        <span className="dashboard-phase-stat-value">{phaseAssignments.length}</span>
-                        <div className="realtime-change">
-                          {phaseAssignments.length > 0 ? '✓' : '-'}
-                        </div>
-                      </div>
+                     
                       <div className="dashboard-phase-stat-box realtime-stat">
                         <span className="dashboard-phase-stat-label">Meetings</span>
                         <span className="dashboard-phase-stat-value">{phaseMeetings.length}</span>
@@ -877,7 +899,7 @@ export default function RealTimeDashboard() {
             <div className="dashboard-title-section">
               <h2 className="dashboard-section-title">Current Mentors ({allMentors.length})</h2>
               <p className="dashboard-section-subtitle">
-                Live mentor capacity tracking - {allAssignments.length} active assignments
+               mentor capacity tracking - {allAssignments.length} active assignments
                 {searchMentor && ` - Filtered by "${searchMentor}"`}
               </p>
             </div>
@@ -961,7 +983,7 @@ export default function RealTimeDashboard() {
                   filteredMentorCapacity.map((mentor, index) => (
                     <div
                       key={mentor.id}
-                      className={`dashboard-mentor-card ${index === currentMentorIndex ? 'active' : 'inactive'} realtime-card`}
+                      className={`dashboard-mentor-card ${index === currentMentorIndex ? 'active' : 'inactive'} `}
                     >
                       <h3 className="dashboard-mentor-name">{mentor.name}</h3>
                       <div className="dashboard-capacity-meter">
@@ -981,16 +1003,7 @@ export default function RealTimeDashboard() {
                           />
                         </div>
                       </div>
-                      <div className="dashboard-mentor-stats">
-                        <div className="dashboard-stat-item">
-                          <span className="dashboard-stat-label">Sessions Completed</span>
-                          <span className="dashboard-stat-value">{mentor.sessionsCompleted}</span>
-                        </div>
-                        <div className="dashboard-stat-item">
-                          <span className="dashboard-stat-label">Upcoming Sessions</span>
-                          <span className="dashboard-stat-value">{mentor.sessionsUpcoming}</span>
-                        </div>
-                      </div>
+                      
                       <div className="mentor-mentees-list">
                         <span className="mentee-label">Mentees:</span>
                         {mentor.mentees.length > 0 ? (
@@ -1018,123 +1031,6 @@ export default function RealTimeDashboard() {
                       key={index}
                       onClick={() => goToMentor(index)}
                       className={`dashboard-carousel-indicator ${index === currentMentorIndex ? 'active' : ''}`}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* All Sessions - REAL-TIME */}
-        <div className="dashboard-section-card">
-          <div className="dashboard-section-header">
-            <div className="dashboard-title-section">
-              <h2 className="dashboard-section-title">All Sessions ({allMeetings.length})</h2>
-              <div className="dashboard-session-count">
-                {filteredSessionsByStatus.length} session{filteredSessionsByStatus.length !== 1 ? 's' : ''} found • 
-                {meetingStats.completedMeetings} completed • 
-                {meetingStats.upcomingMeetings} upcoming
-              </div>
-            </div>
-            
-            <div className="dashboard-filter-buttons">
-              <button
-                onClick={() => setFilterStatus('all')}
-                className={`dashboard-filter-btn ${filterStatus === 'all' ? 'active' : ''}`}
-              >
-                All ({allMeetings.length})
-              </button>
-              <button
-                onClick={() => setFilterStatus('completed')}
-                className={`dashboard-filter-btn ${filterStatus === 'completed' ? 'active' : ''}`}
-              >
-                Completed ({meetingStats.completedMeetings})
-              </button>
-              <button
-                onClick={() => setFilterStatus('scheduled')}
-                className={`dashboard-filter-btn ${filterStatus === 'scheduled' ? 'active' : ''}`}
-              >
-                Scheduled ({meetingStats.upcomingMeetings})
-              </button>
-              <button
-                onClick={() => setFilterStatus('cancelled')}
-                className={`dashboard-filter-btn ${filterStatus === 'cancelled' ? 'active' : ''}`}
-              >
-                Cancelled ({meetingStats.postponedMeetings})
-              </button>
-            </div>
-          </div>
-
-          {filteredSessionsByStatus.length === 0 ? (
-            <div className="dashboard-empty-state">
-              <p className="dashboard-empty-text">No sessions found for this filter</p>
-            </div>
-          ) : (
-            <div className="sessions-carousel">
-              <div className="dashboard-carousel-header">
-                <div className="dashboard-carousel-info">
-                  <span className="dashboard-carousel-counter">
-                    Session {currentSessionIndex + 1} of {filteredSessionsByStatus.length}
-                  </span>
-                </div>
-                {filteredSessionsByStatus.length > 1 && (
-                  <div className="dashboard-carousel-controls">
-                    <button onClick={prevSession} className="dashboard-carousel-btn">‹</button>
-                    <button onClick={nextSession} className="dashboard-carousel-btn">›</button>
-                  </div>
-                )}
-              </div>
-
-              <div className="dashboard-session-cards">
-                {filteredSessionsByStatus.map((session, index) => (
-                  <div
-                    key={session.id}
-                    className={`dashboard-session-card ${index === currentSessionIndex ? 'active' : 'inactive'} realtime-card`}
-                  >
-                    <div className="dashboard-session-header">
-                      <div className="dashboard-session-icon">
-                        {getStatusIcon(session.status)}
-                      </div>
-                      <div className="dashboard-session-info">
-                        <h3 className="dashboard-session-topic">{session.topic}</h3>
-                        <p className="dashboard-session-details">
-                          {new Date(session.date).toLocaleDateString()} • {session.time} • {session.duration}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="dashboard-session-content">
-                      <div className="dashboard-participants">
-                        <div className="dashboard-participant">
-                          <span className="dashboard-participant-role">Mentor:</span>
-                          <span className="dashboard-participant-name">{session.mentorName}</span>
-                        </div>
-                        <div className="dashboard-participant">
-                          <span className="dashboard-participant-role">Mentee:</span>
-                          <span className="dashboard-participant-name">{session.menteeName}</span>
-                        </div>
-                      </div>
-                      <div className="dashboard-session-status" style={getStatusColor(session.status)}>
-                        {session.status}
-                      </div>
-                    </div>
-                    
-                    <div className="session-meta">
-                      <span className="meta-item">{session.meetingType}</span>
-                      <span className="meta-item">Phase: {session.phase}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {filteredSessionsByStatus.length > 1 && (
-                <div className="dashboard-carousel-indicators">
-                  {filteredSessionsByStatus.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => goToSession(index)}
-                      className={`dashboard-carousel-indicator ${index === currentSessionIndex ? 'active' : ''}`}
                     />
                   ))}
                 </div>
@@ -1177,21 +1073,7 @@ export default function RealTimeDashboard() {
             </div>
           )}
         </div>
-
-        <div className="dashboard-footer">
-          <p>Real-time Mentorship Dashboard • Data auto-refreshes every 30 seconds</p>
-          <div className="refresh-info">
-            <span className="refresh-interval">Stats: 30s</span>
-            <span className="refresh-interval">Mentors: 60s</span>
-            <span className="refresh-interval">Meetings: 30s</span>
-            <span className="refresh-interval">Assignments: 2m</span>
-          </div>
-          {lastUpdated && (
-            <p className="last-update-footer">
-              Last updated: {new Date(lastUpdated).toLocaleString()}
-            </p>
-          )}
-        </div>
+        
       </div>
     </div>
   );
