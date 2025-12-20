@@ -29,47 +29,8 @@ router.use("/meeting-status", require("./meetingStatusRoutes"));
 // Phase management routes
 router.use("/phases", require("./phaseRoutes"));
 router.use("/dashboard", require("./dashboardRoutes"));
-router.use("/homedashboard", require("./homeDashboardRoutes"));
 
-// REMINDER ROUTES - NEW
-router.use("/reminders", require("./reminderRoutes"));
 
-// Health check endpoint
-router.get("/health", (req, res) => {
-  res.json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    services: {
-      auth: "active",
-      users: "active",
-      meetings: "active",
-      reminders: "active",
-      feedback: "active",
-      phases: "active"
-    }
-  });
-});
 
-// 404 handler for API routes
-router.use((req, res) => {
-  res.status(404).json({ 
-    message: "API route not found",
-    availableRoutes: [
-      "/api/auth",
-      "/api/users",
-      "/api/mentor",
-      "/api/mentee",
-      "/api/mentor-mentee",
-      "/api/program-feedback",
-      "/api/meetings",
-      "/api/meeting-status",
-      "/api/phases",
-      "/api/dashboard",
-      "/api/homedashboard",
-      "/api/reminders",
-      "/api/health"
-    ]
-  });
-});
 
 module.exports = router;
