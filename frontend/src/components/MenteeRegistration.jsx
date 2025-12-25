@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import "./MenteeRegistration.css";
 
 export default function MenteeRegistrationForm() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get email from URL params or localStorage
+  const getEmailFromSource = () => {
+    const params = new URLSearchParams(location.search);
+    const urlEmail = params.get('email');
+    if (urlEmail) return decodeURIComponent(urlEmail);
+    
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedEmail) return storedEmail;
+    
+    return "";
+  };
+
   const [formData, setFormData] = useState({
-    email: "",
+    email: getEmailFromSource(),
     fullName: "",
     branch: "",
     batch: "",
@@ -11,7 +27,7 @@ export default function MenteeRegistrationForm() {
     areaOfInterest: "",
     description: "",
     phaseId: null,
-    phaseName: "", // auto-filled Phase Name
+    phaseName: "",
   });
 
   const [phases, setPhases] = useState([]);
@@ -22,6 +38,26 @@ export default function MenteeRegistrationForm() {
   const [submitting, setSubmitting] = useState(false);
   const emailTimeoutRef = useRef(null);
 
+  // Auto-scroll to top when submitted
+  useEffect(() => {
+    if (submitted) {
+      // Scroll to the top of the form to show the success message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [submitted]);
+
+  // Fetch user data when email is available on component mount
+  useEffect(() => {
+    if (formData.email && formData.email.trim()) {
+      const trimmedEmail = formData.email.toLowerCase().trim();
+      if (/\S+@\S+\.\S+/.test(trimmedEmail)) {
+        setTimeout(() => {
+          fetchUserByEmail(trimmedEmail);
+        }, 100);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     fetchPhases();
     return () => {
@@ -29,7 +65,6 @@ export default function MenteeRegistrationForm() {
     };
   }, []);
 
-  // Fetch all phases and determine current active phase
   const fetchPhases = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/phases");
@@ -170,15 +205,15 @@ export default function MenteeRegistrationForm() {
         setSubmitted(true);
         setTimeout(() => {
           setFormData({
-            email: "",
+            email: formData.email,
             fullName: "",
             branch: "",
             batch: "",
             contactNumber: "",
             areaOfInterest: "",
             description: "",
-            phaseId: null,
-            phaseName: "",
+            phaseId: formData.phaseId,
+            phaseName: formData.phaseName,
           });
           setErrors({});
           setEmailFetched(false);
@@ -194,132 +229,155 @@ export default function MenteeRegistrationForm() {
     }
   };
 
-return (
-  <div className="form-wrapper">
-    <button className="dashboard-btn" onClick={() => (window.location.href = "/dashboard")}>
-      ← Go to Dashboard
-    </button>
+  const handleGoBack = () => {
+    navigate('/dashboard');
+  };
 
-    <div className="form-container">
-      <div className="form-header">
-        <h1 className="form-title">Mentee Registration</h1>
-        <p className="form-subtitle">Only registered alumni can apply</p>
-      </div>
+  return (
+    <div className="form-wrapper">
+      <button className="dashboard-btn" onClick={handleGoBack}>
+        ← Back to Dashboard
+      </button>
 
-      <div className="form-card">
-        {submitted && <div className="success-message">Registration submitted successfully!</div>}
+      <div className="form-container">
+        <div className="form-header">
+          <h1 className="form-title">Mentee Registration</h1>
+          <p className="form-subtitle">
+            {formData.email ? `Registering as: ${formData.email}` : "Only registered alumni can apply"}
+          </p>
+         
+        </div>
 
-        <div className="form-content">
-          {/* Email */}
-          <div className="form-group">
-            <label className="label">College Email <span className="required">*</span></label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="e.g. chocka.nec@gmail.com"
-              className={`input ${errors.email ? "input-error" : ""}`}
-              disabled={submitting}
-            />
-            {loadingEmail && <small className="loading-text">Searching in members database...</small>}
-            {errors.email && <span className="error-text">{errors.email}</span>}
-            {emailFetched && !errors.email && (
-              <small style={{ color: "#8b5cf6", fontWeight: "600" }}>✓ Found in database!</small>
-            )}
-          </div>
-
-          {/* Auto-filled Phase Name */}
-          <div className="form-group">
-            <label className="label">Current Phase</label>
-            <input
-              type="text"
-              value={formData.phaseName}
-              disabled
-              className="input disabled-input"
-            />
-          </div>
-
-          {/* Auto-filled user details */}
-          <div className="form-row">
-            <div className="form-group">
-              <label className="label">Full Name</label>
-              <input type="text" value={formData.fullName} disabled className="input disabled-input" />
+        <div className="form-card">
+          {/* Enhanced Success Message */}
+          {submitted && (
+            <div className="success-message-container">
+              <div className="success-message">
+                <div className="success-icon">✓</div>
+                <div className="success-content">
+                  <h3 className="success-title">Registration Submitted Successfully!</h3>
+                  <p className="success-text">
+                    Your mentee registration has been received. You will be notified once a mentor is assigned.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="form-group">
-              <label className="label">Branch</label>
-              <input type="text" value={formData.branch} disabled className="input disabled-input" />
-            </div>
-          </div>
+          )}
 
-          <div className="form-row">
+          <div className="form-content">
+            {/* Email - Read-only if auto-filled */}
             <div className="form-group">
-              <label className="label">Batch</label>
-              <input type="text" value={formData.batch} disabled className="input disabled-input" />
+              <label className="label">College Email <span className="required">*</span></label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="e.g. chocka.nec@gmail.com"
+                className={`input ${errors.email ? "input-error" : ""} ${getEmailFromSource() ? 'disabled-input' : ''}`}
+                disabled={submitting || (!!getEmailFromSource())}
+                readOnly={!!getEmailFromSource()}
+              />
+              {getEmailFromSource() && (
+                <small className="info-text">Email auto-filled from dashboard</small>
+              )}
+              {loadingEmail && <small className="loading-text">Searching in members database...</small>}
+              {errors.email && <span className="error-text">{errors.email}</span>}
+              {emailFetched && !errors.email && (
+                <small style={{ color: "#8b5cf6", fontWeight: "600" }}>✓ Found in database!</small>
+              )}
             </div>
-            <div className="form-group">
-              <label className="label">Contact</label>
-              <input type="text" value={formData.contactNumber} disabled className="input disabled-input" />
-            </div>
-          </div>
 
-          {/* Area of Interest */}
-          <div className="form-group">
-            <label className="label">Area of Interest <span className="required">*</span></label>
-            <select
-              name="areaOfInterest"
-              value={formData.areaOfInterest}
-              onChange={handleChange}
-              className={`select ${errors.areaOfInterest ? "input-error" : ""}`}
-              disabled={submitting}
+            {/* Auto-filled Phase Name */}
+            <div className="form-group">
+              <label className="label">Current Phase</label>
+              <input
+                type="text"
+                value={formData.phaseName}
+                disabled
+                className="input disabled-input"
+              />
+            </div>
+
+            {/* Auto-filled user details */}
+            <div className="form-row">
+              <div className="form-group">
+                <label className="label">Full Name</label>
+                <input type="text" value={formData.fullName} disabled className="input disabled-input" />
+              </div>
+              <div className="form-group">
+                <label className="label">Branch</label>
+                <input type="text" value={formData.branch} disabled className="input disabled-input" />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label className="label">Batch</label>
+                <input type="text" value={formData.batch} disabled className="input disabled-input" />
+              </div>
+              <div className="form-group">
+                <label className="label">Contact</label>
+                <input type="text" value={formData.contactNumber} disabled className="input disabled-input" />
+              </div>
+            </div>
+
+            {/* Area of Interest */}
+            <div className="form-group">
+              <label className="label">Area of Interest <span className="required">*</span></label>
+              <select
+                name="areaOfInterest"
+                value={formData.areaOfInterest}
+                onChange={handleChange}
+                className={`select ${errors.areaOfInterest ? "input-error" : ""}`}
+                disabled={submitting || submitted}
+              >
+                <option value="">-- Select one --</option>
+                <option value="web-development">Web Development</option>
+                <option value="data-science">Data Science</option>
+                <option value="machine-learning">Machine Learning</option>
+                <option value="cloud-computing">Cloud Computing</option>
+                <option value="cybersecurity">Cybersecurity</option>
+                <option value="app-development">App Development</option>
+                <option value="devops">DevOps</option>
+              </select>
+              {errors.areaOfInterest && <span className="error-text">{errors.areaOfInterest}</span>}
+            </div>
+
+            {/* Description */}
+            <div className="form-group">
+              <label className="label">Your Goals & Background <span className="required">*</span></label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="What do you want to learn? What's your current level? Any projects?"
+                rows="5"
+                className={`textarea ${errors.description ? "input-error" : ""}`}
+                disabled={submitting || submitted}
+              />
+              {errors.description && <span className="error-text">{errors.description}</span>}
+            </div>
+
+            <button
+              onClick={handleSubmit}
+              className="submit-btn"
+              disabled={submitting || loadingEmail || submitted}
             >
-              <option value="">-- Select one --</option>
-              <option value="web-development">Web Development</option>
-              <option value="data-science">Data Science</option>
-              <option value="machine-learning">Machine Learning</option>
-              <option value="cloud-computing">Cloud Computing</option>
-              <option value="cybersecurity">Cybersecurity</option>
-              <option value="app-development">App Development</option>
-              <option value="devops">DevOps</option>
-            </select>
-            {errors.areaOfInterest && <span className="error-text">{errors.areaOfInterest}</span>}
+              {submitting ? (
+                <>
+                  <span className="loading-spinner"></span>
+                  Submitting...
+                </>
+              ) : submitted ? (
+                "Submitted!"
+              ) : (
+                "Submit Request"
+              )}
+            </button>
           </div>
-
-          {/* Description */}
-          <div className="form-group">
-            <label className="label">Your Goals & Background <span className="required">*</span></label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder="What do you want to learn? What's your current level? Any projects?"
-              rows="5"
-              className={`textarea ${errors.description ? "input-error" : ""}`}
-              disabled={submitting}
-            />
-            {errors.description && <span className="error-text">{errors.description}</span>}
-          </div>
-
-          <button
-            onClick={handleSubmit}
-            className="submit-btn"
-            disabled={submitting || loadingEmail || submitted}
-          >
-            {submitting ? (
-              <>
-                <span className="loading-spinner"></span>
-                Submitting...
-              </>
-            ) : submitted ? (
-              "Submitted!"
-            ) : (
-              "Submit Request"
-            )}
-          </button>
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }
-// ==================================================

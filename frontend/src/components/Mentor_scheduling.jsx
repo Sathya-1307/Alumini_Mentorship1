@@ -1,11 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './MentorshipSchedulingForm.css';
 
 export default function MentorshipSchedulingForm() {
+  const navigate = useNavigate();
+  
+  // Get email from localStorage
+  const getEmailFromSource = () => {
+    const storedEmail = localStorage.getItem('userEmail');
+    return storedEmail || "";
+  };
+
   const [formData, setFormData] = useState({
     mentorName: '',
-    mentorEmail: '',
+    mentorEmail: getEmailFromSource(),
     mentorId: '',
     menteeEmails: [],
     commencementDate: '',
@@ -16,7 +25,9 @@ export default function MentorshipSchedulingForm() {
     meetingLink: '',
     agenda: '',
     preferredDay: '',
-    numberOfMeetings: 1
+    numberOfMeetings: 1,
+    phaseId: null,
+    phaseName: ''
   });
 
   const [assignedMentees, setAssignedMentees] = useState([]);
@@ -24,18 +35,120 @@ export default function MentorshipSchedulingForm() {
   const [customDates, setCustomDates] = useState([]);
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [phases, setPhases] = useState([]);
+  const [loadingPhase, setLoadingPhase] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const emailTimeoutRef = useRef(null);
+
+  // Auto-scroll to top when submitted
+  useEffect(() => {
+    if (submitted) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [submitted]);
+
+  // Fetch mentor data when email is available on component mount
+  useEffect(() => {
+    if (formData.mentorEmail && formData.mentorEmail.trim()) {
+      const trimmedEmail = formData.mentorEmail.toLowerCase().trim();
+      if (/\S+@\S+\.\S+/.test(trimmedEmail)) {
+        setTimeout(() => {
+          fetchMentorData(trimmedEmail);
+        }, 100);
+      }
+    }
+  }, []);
+
+  // Fetch phases on component mount
+  useEffect(() => {
+    fetchPhases();
+    return () => {
+      if (emailTimeoutRef.current) clearTimeout(emailTimeoutRef.current);
+    };
+  }, []);
+
+  // Fetch all phases and determine current active phase
+  const fetchPhases = async () => {
+    try {
+      setLoadingPhase(true);
+      const res = await axios.get("http://localhost:5000/api/phases");
+      const data = res.data;
+      if (data.phases) {
+        setPhases(data.phases);
+        const currentPhase = data.phases.find(
+          (p) => new Date(p.startDate) <= new Date() && new Date() <= new Date(p.endDate)
+        );
+        if (currentPhase) {
+          setFormData((prev) => ({
+            ...prev,
+            phaseId: currentPhase.phaseId,
+            phaseName: `${currentPhase.name} (${new Date(currentPhase.startDate).toLocaleDateString()} - ${new Date(currentPhase.endDate).toLocaleDateString()})`,
+          }));
+        } else {
+          console.warn("No active phase found");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch phases:", err);
+    } finally {
+      setLoadingPhase(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
 
-    if (name === "mentorEmail" && value.length > 5) fetchMentorData(value);
+    // Add real-time date validations
+    if (name === "commencementDate" && value) {
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+      const selectedDate = new Date(value);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      if (selectedDate < currentDate) {
+        setErrors(prev => ({ 
+          ...prev, 
+          commencementDate: "Commencement date must be today or a future date" 
+        }));
+      }
+    }
+    
+    if (name === "endDate" && value && formData.commencementDate) {
+      const commencementDate = new Date(formData.commencementDate);
+      const endDate = new Date(value);
+      if (endDate <= commencementDate) {
+        setErrors(prev => ({ 
+          ...prev, 
+          endDate: "End date must be after commencement date" 
+        }));
+      }
+    }
+    
+    // Add real-time URL validation for meeting link
+    if (name === "meetingLink" && value) {
+      const urlPattern = /^(https?:\/\/)?([\w\-]+\.)+[\w\-]+(\/[\w\- .\/?%&=]*)?$/;
+      if (!urlPattern.test(value)) {
+        setErrors(prev => ({ 
+          ...prev, 
+          meetingLink: "Please enter a valid URL (e.g., https://meet.google.com/abc-xyz)" 
+        }));
+      }
+    }
+
+    if (name === "mentorEmail" && value.length > 5) {
+      if (emailTimeoutRef.current) clearTimeout(emailTimeoutRef.current);
+      emailTimeoutRef.current = setTimeout(() => {
+        fetchMentorData(value.trim());
+      }, 600);
+    }
   };
 
   const fetchMentorData = async (email) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/meetings/mentor-details?email=${email.trim()}`);
+      const res = await axios.get(`http://localhost:5000/api/meetings/mentor-details?email=${email}`);
 
       const mentor = res.data.mentor || {};
       const assigned = res.data.assignedMentees || [];
@@ -46,7 +159,7 @@ export default function MentorshipSchedulingForm() {
         mentorId: mentor._id || '',
         commencementDate: res.data.commencement_date || '',
         endDate: res.data.end_date || '',
-        menteeEmails: assigned.map(m => (m.basic?.email_id || m.email || '')) // safe fallback
+        menteeEmails: assigned.map(m => (m.basic?.email_id || m.email || ''))
       }));
 
       const mentees = assigned.map(m => ({
@@ -76,7 +189,7 @@ export default function MentorshipSchedulingForm() {
     setFormData(prev => ({ ...prev, menteeEmails: prev.menteeEmails.filter(e => e !== email) }));
   };
 
-  // UPDATED: Auto-generate meeting dates - Evenly distributed across months
+  // Auto-generate meeting dates - Evenly distributed across months
   useEffect(() => {
     const { commencementDate, endDate, preferredDay, numberOfMeetings } = formData;
     if (!commencementDate || !endDate || !preferredDay || !numberOfMeetings) {
@@ -103,22 +216,17 @@ export default function MentorshipSchedulingForm() {
     // Collect all preferred days until end date
     while (current <= end) {
       allPreferredDays.push(new Date(current));
-      current.setDate(current.getDate() + 7); // Next week same day
+      current.setDate(current.getDate() + 7);
     }
     
     // 2. If we have preferred days, distribute them evenly across the timeline
     if (allPreferredDays.length > 0) {
       if (numberOfMeetings === 1) {
-        // Just use the first date
         dates = [allPreferredDays[0]];
       } else if (numberOfMeetings >= allPreferredDays.length) {
-        // If we need more meetings than available days, use all
         dates = allPreferredDays.slice(0, numberOfMeetings);
       } else {
-        // Evenly distribute across the timeline
-        // This ensures we pick dates from different months
         const step = (allPreferredDays.length - 1) / (numberOfMeetings - 1);
-        
         for (let i = 0; i < numberOfMeetings; i++) {
           const index = Math.round(i * step);
           if (index < allPreferredDays.length) {
@@ -152,6 +260,31 @@ export default function MentorshipSchedulingForm() {
     if (!formData.agenda) newErrors.agenda = "Agenda required";
     if (!formData.preferredDay) newErrors.preferredDay = "Preferred day required";
     if (!formData.numberOfMeetings || formData.numberOfMeetings < 1) newErrors.numberOfMeetings = "Enter valid number of meetings";
+    if (!formData.phaseId) newErrors.phaseId = "No active phase found";
+
+    // Add date validations
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    const commencementDate = new Date(formData.commencementDate);
+    commencementDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(formData.endDate);
+    endDate.setHours(0, 0, 0, 0);
+    
+    if (formData.commencementDate && commencementDate < currentDate) {
+      newErrors.commencementDate = "Commencement date must be today or a future date";
+    }
+    
+    if (formData.commencementDate && formData.endDate && endDate <= commencementDate) {
+      newErrors.endDate = "End date must be after commencement date";
+    }
+    
+    // Add URL format validation for meeting link
+    if (formData.meetingLink) {
+      const urlPattern = /^(https?:\/\/)?([\w\-]+\.)+[\w\-]+(\/[\w\- .\/?%&=]*)?$/;
+      if (!urlPattern.test(formData.meetingLink)) {
+        newErrors.meetingLink = "Please enter a valid URL (e.g., https://meet.google.com/abc-xyz)";
+      }
+    }
 
     customDates.forEach((d, i) => { if (!d) newErrors[`customDate${i}`] = "Required"; });
 
@@ -164,6 +297,14 @@ export default function MentorshipSchedulingForm() {
       setErrors(newErrors);
       return;
     }
+
+    // Phase validation before submission
+    if (!formData.phaseId) {
+      alert("No active phase found. Cannot schedule meeting.");
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
       const selectedMentees = assignedMentees.filter(m => formData.menteeEmails.includes(m.email));
@@ -184,7 +325,8 @@ export default function MentorshipSchedulingForm() {
         meeting_link: formData.meetingLink,
         agenda: formData.agenda,
         preferred_day: formData.preferredDay,
-        number_of_meetings: formData.numberOfMeetings
+        number_of_meetings: formData.numberOfMeetings,
+        phaseId: formData.phaseId
       });
 
       setSubmitted(true);
@@ -192,7 +334,7 @@ export default function MentorshipSchedulingForm() {
         setSubmitted(false);
         setFormData({
           mentorName: '',
-          mentorEmail: '',
+          mentorEmail: formData.mentorEmail, // Keep the email
           mentorId: '',
           menteeEmails: [],
           commencementDate: '',
@@ -203,16 +345,27 @@ export default function MentorshipSchedulingForm() {
           meetingLink: '',
           agenda: '',
           preferredDay: '',
-          numberOfMeetings: 1
+          numberOfMeetings: 1,
+          phaseId: formData.phaseId,
+          phaseName: formData.phaseName
         });
         setAssignedMentees([]);
         setGeneratedDates([]);
         setCustomDates([]);
+        setSubmitting(false);
       }, 2500);
 
     } catch (error) {
       alert(error.response?.data?.message || error.message || "Meeting scheduling failed.");
+      setSubmitting(false);
     }
+  };
+
+  // Get today's date in YYYY-MM-DD format for min attribute
+  const today = new Date().toISOString().split('T')[0];
+
+  const handleGoBack = () => {
+    navigate('/dashboard');
   };
 
   return (
@@ -222,19 +375,62 @@ export default function MentorshipSchedulingForm() {
       <div className="orb orb-2"></div>
       <div className="orb orb-3"></div>
       
-      {/* ADDED: Dashboard Button */}
-      <button className="dashboard-btn" onClick={() => (window.location.href = "/dashboard")}>
-        ← Go to Dashboard
+      {/* Dashboard Button */}
+      <button className="dashboard-btn" onClick={handleGoBack}>
+        ← Back to Dashboard
       </button>
 
       <div className="form-container">
-        <h1 className="form-title">Mentorship Scheduling</h1>
-        <p className="form-subtitle">Manage mentees for the mentor</p>
+        <div className="form-header">
+          <h1 className="form-title">Mentorship Scheduling</h1>
+          <p className="form-subtitle">
+            {formData.mentorEmail ? `Scheduling as mentor: ${formData.mentorEmail}` : "Manage mentees for the mentor"}
+          </p>
+        
+        </div>
 
         <div className="form-card">
-          {submitted && <div className="success-message">✓ Meeting Scheduled</div>}
+          {/* Enhanced Success Message */}
+          {submitted && (
+            <div className="success-message-container">
+              <div className="success-message">
+                <div className="success-icon">✓</div>
+                <div className="success-content">
+                  <h3 className="success-title">Meeting Scheduled Successfully!</h3>
+                  <p className="success-text">
+                    Your mentorship sessions have been scheduled. Mentees will be notified about the meetings.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* Mentor Email & Name */}
+          {/* Phase Field */}
+          <div className="form-group">
+            <label className="label">Current Phase *</label>
+            {loadingPhase ? (
+              <div className="loading-phase">
+                <small>Loading phase information...</small>
+              </div>
+            ) : (
+              <>
+                <input
+                  type="text"
+                  value={formData.phaseName || "No active phase found"}
+                  disabled
+                  className={`input disabled-input ${!formData.phaseId ? 'input-warning' : ''}`}
+                />
+                {errors.phaseId && <span className="error-text">{errors.phaseId}</span>}
+                {formData.phaseId && (
+                  <small style={{ color: "#8b5cf6", fontWeight: "600" }}>
+                    ✓ Active phase selected
+                  </small>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Mentor Email - Read-only if auto-filled */}
           <div className="form-group">
             <label className="label">Mentor Email *</label>
             <input 
@@ -242,8 +438,14 @@ export default function MentorshipSchedulingForm() {
               name="mentorEmail" 
               value={formData.mentorEmail} 
               onChange={handleChange} 
-              className={`input ${errors.mentorEmail ? "input-error" : ""}`} 
+              className={`input ${errors.mentorEmail ? "input-error" : ""} ${getEmailFromSource() ? 'disabled-input' : ''}`}
+              disabled={submitting || submitted || (!!getEmailFromSource())}
+              readOnly={!!getEmailFromSource()}
+              placeholder="Enter mentor's email"
             />
+            {getEmailFromSource() && (
+              <small className="info-text">Email auto-filled from dashboard</small>
+            )}
             {errors.mentorEmail && <span className="error-text">{errors.mentorEmail}</span>}
           </div>
 
@@ -258,7 +460,7 @@ export default function MentorshipSchedulingForm() {
             />
           </div>
 
-          {/* Commencement & End Date */}
+          {/* Commencement Date - must be today or future */}
           <div className="form-group">
             <label className="label">Commencement Date *</label>
             <input 
@@ -267,10 +469,14 @@ export default function MentorshipSchedulingForm() {
               value={formData.commencementDate} 
               onChange={handleChange} 
               className={`input ${errors.commencementDate ? "input-error" : ""}`} 
+              min={today}
+              disabled={submitting || submitted}
             />
             {errors.commencementDate && <span className="error-text">{errors.commencementDate}</span>}
+            
           </div>
 
+          {/* End Date - must be after commencement */}
           <div className="form-group">
             <label className="label">End Date *</label>
             <input 
@@ -279,8 +485,11 @@ export default function MentorshipSchedulingForm() {
               value={formData.endDate} 
               onChange={handleChange} 
               className={`input ${errors.endDate ? "input-error" : ""}`} 
+              min={formData.commencementDate || today}
+              disabled={submitting || submitted}
             />
             {errors.endDate && <span className="error-text">{errors.endDate}</span>}
+            
           </div>
 
           {/* Preferred Day & Number of Meetings */}
@@ -291,6 +500,7 @@ export default function MentorshipSchedulingForm() {
               value={formData.preferredDay} 
               onChange={handleChange} 
               className={`select ${errors.preferredDay ? 'input-error' : ''}`}
+              disabled={submitting || submitted}
             >
               <option value="">-- Select Day --</option>
               {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map(d => (
@@ -309,6 +519,7 @@ export default function MentorshipSchedulingForm() {
               value={formData.numberOfMeetings} 
               onChange={handleChange} 
               className={`input ${errors.numberOfMeetings ? 'input-error' : ''}`} 
+              disabled={submitting || submitted}
             />
             {errors.numberOfMeetings && <span className="error-text">{errors.numberOfMeetings}</span>}
           </div>
@@ -347,6 +558,8 @@ export default function MentorshipSchedulingForm() {
                 value={customDates[i]} 
                 onChange={e => handleCustomDateChange(i, e.target.value)} 
                 className={`input ${errors[`customDate${i}`] ? 'input-error' : ''}`} 
+                min={formData.commencementDate || today}
+                disabled={submitting || submitted}
               />
               {errors[`customDate${i}`] && <span className="error-text">{errors[`customDate${i}`]}</span>}
             </div>
@@ -360,7 +573,13 @@ export default function MentorshipSchedulingForm() {
               {assignedMentees.filter(m => formData.menteeEmails.includes(m.email)).map(m => (
                 <span key={m._id} className="selected-mentee">
                   {m.name} ({m.email})
-                  <span className="cross-symbol" onClick={() => removeMentee(m.email)}>×</span>
+                  <span 
+                    className="cross-symbol" 
+                    onClick={() => !submitting && !submitted && removeMentee(m.email)}
+                    style={{ cursor: (submitting || submitted) ? 'not-allowed' : 'pointer', opacity: (submitting || submitted) ? 0.5 : 1 }}
+                  >
+                    ×
+                  </span>
                 </span>
               ))}
             </div>
@@ -376,7 +595,9 @@ export default function MentorshipSchedulingForm() {
               value={formData.meetingTime} 
               onChange={handleChange} 
               className={`input ${errors.meetingTime ? 'input-error' : ''}`} 
+              disabled={submitting || submitted}
             />
+            {errors.meetingTime && <span className="error-text">{errors.meetingTime}</span>}
           </div>
 
           <div className="form-group">
@@ -387,7 +608,9 @@ export default function MentorshipSchedulingForm() {
               value={formData.duration} 
               onChange={handleChange} 
               className={`input ${errors.duration ? 'input-error' : ''}`} 
+              disabled={submitting || submitted}
             />
+            {errors.duration && <span className="error-text">{errors.duration}</span>}
           </div>
 
           <div className="form-group">
@@ -397,12 +620,14 @@ export default function MentorshipSchedulingForm() {
               value={formData.platform} 
               onChange={handleChange} 
               className={`select ${errors.platform ? 'input-error' : ''}`}
+              disabled={submitting || submitted}
             >
               <option value="">-- Select Platform --</option>
               <option value="zoom">Zoom</option>
               <option value="google-meet">Google Meet</option>
               <option value="teams">Microsoft Teams</option>
             </select>
+            {errors.platform && <span className="error-text">{errors.platform}</span>}
           </div>
 
           <div className="form-group">
@@ -413,7 +638,10 @@ export default function MentorshipSchedulingForm() {
               value={formData.meetingLink} 
               onChange={handleChange} 
               className={`input ${errors.meetingLink ? 'input-error' : ''}`} 
+              placeholder="https://meet.google.com/abc-xyz"
+              disabled={submitting || submitted}
             />
+            {errors.meetingLink && <span className="error-text">{errors.meetingLink}</span>}
           </div>
 
           <div className="form-group">
@@ -424,11 +652,28 @@ export default function MentorshipSchedulingForm() {
               onChange={handleChange} 
               className={`textarea ${errors.agenda ? 'input-error' : ''}`} 
               rows="5"
+              disabled={submitting || submitted}
             />
+            {errors.agenda && <span className="error-text">{errors.agenda}</span>}
           </div>
 
-          <button onClick={handleSubmit} className="submit-btn">
-            Schedule Meeting
+          <button 
+            onClick={handleSubmit} 
+            className="submit-btn"
+            disabled={!formData.phaseId || submitting || submitted}
+          >
+            {submitting ? (
+              <>
+                <span className="loading-spinner"></span>
+                Scheduling...
+              </>
+            ) : submitted ? (
+              "Scheduled!"
+            ) : !formData.phaseId ? (
+              "No Active Phase"
+            ) : (
+              "Schedule Meeting"
+            )}
           </button>
         </div>
       </div>

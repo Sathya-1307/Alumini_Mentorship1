@@ -555,9 +555,7 @@ export default function MentorshipDashboard() {
         </div>
         
         <div className="md-header-actions">
-          <button className="md-refresh-button" onClick={handleRefresh}>
-            <RefreshIcon />
-          </button>
+          
           <button className="md-mobile-menu-btn" onClick={toggleMobileMenu}>
             {mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
           </button>

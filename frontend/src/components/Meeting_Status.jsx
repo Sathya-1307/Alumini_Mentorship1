@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import './MeetingStatus.css';
@@ -10,6 +10,7 @@ export default function MeetingStatusUpdateForm() {
   const mentorEmailParam = searchParams.get('mentorEmail');
   const scheduledDateParam = searchParams.get('scheduledDate');
   const menteeEmailParam = searchParams.get('menteeEmail');
+  const meetingIdParam = searchParams.get('meetingId');
 
   const [formData, setFormData] = useState({
     mentorEmail: mentorEmailParam || '',
@@ -17,12 +18,54 @@ export default function MeetingStatusUpdateForm() {
     scheduledDate: scheduledDateParam || '',
     meetingStatus: '',
     meetingMinutes: '',
-    postponedReason: ''
+    postponedReason: '',
+    phaseId: null, // ✅ Added phaseId
+    phaseName: ''  // ✅ Added phaseName for display
   });
 
   const [errors, setErrors] = useState({});
   const [submitted, setSubmitted] = useState(false);
   const [menteeId, setMenteeId] = useState('');
+  const [phases, setPhases] = useState([]); // ✅ Added phases state
+  const [loadingPhase, setLoadingPhase] = useState(false); // ✅ Added loading state
+
+  // ================================
+  // FETCH PHASES AND CURRENT ACTIVE PHASE
+  // ================================
+  useEffect(() => {
+    fetchPhases();
+  }, []);
+
+  const fetchPhases = async () => {
+    try {
+      setLoadingPhase(true);
+      const res = await axios.get("http://localhost:5000/api/phases");
+      const data = res.data;
+      
+      if (data.phases) {
+        setPhases(data.phases);
+        const currentPhase = data.phases.find(
+          (p) => new Date(p.startDate) <= new Date() && new Date() <= new Date(p.endDate)
+        );
+        
+        if (currentPhase) {
+          setFormData((prev) => ({
+            ...prev,
+            phaseId: currentPhase.phaseId,
+            phaseName: `${currentPhase.name} (${new Date(currentPhase.startDate).toLocaleDateString()} - ${new Date(currentPhase.endDate).toLocaleDateString()})`,
+          }));
+        } else {
+          console.warn("No active phase found");
+          setErrors(prev => ({ ...prev, phaseId: "No active phase found" }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch phases:", err);
+      setErrors(prev => ({ ...prev, phaseId: "Failed to load phase information" }));
+    } finally {
+      setLoadingPhase(false);
+    }
+  };
 
   // ================================
   // FETCH MENTEE _id FROM EMAIL
@@ -69,7 +112,11 @@ export default function MeetingStatusUpdateForm() {
   // ================================
   const validate = () => {
     const newErrors = {};
+    
     if (!formData.meetingStatus) newErrors.meetingStatus = "Select meeting status";
+    
+    // ✅ Added phaseId validation
+    if (!formData.phaseId) newErrors.phaseId = "No active phase found";
 
     if (formData.meetingStatus === "Completed" && !formData.meetingMinutes)
       newErrors.meetingMinutes = "Meeting minutes required";
@@ -95,14 +142,22 @@ export default function MeetingStatusUpdateForm() {
       return;
     }
 
+    // ✅ Check for phaseId before submission
+    if (!formData.phaseId) {
+      alert("No active phase found. Cannot update meeting status.");
+      return;
+    }
+
     try {
+      // ✅ Updated to include phaseId in the request
       await axios.post("http://localhost:5000/api/meeting-status/update", {
         mentorEmail: formData.mentorEmail,
         menteeIds: [menteeId],
-        meetingId: searchParams.get('meetingId'), // pass meetingId from URL
+        meetingId: meetingIdParam,
         status: formData.meetingStatus,
         meetingMinutes: formData.meetingMinutes || "",
-        postponedReason: formData.postponedReason || ""
+        postponedReason: formData.postponedReason || "",
+        phaseId: formData.phaseId // ✅ Added phaseId
       });
 
       setSubmitted(true);
@@ -122,6 +177,31 @@ export default function MeetingStatusUpdateForm() {
       <div className="form-container">
         <h1>Update Meeting Status</h1>
         {submitted && <div className="success-message">✓ Updated Successfully</div>}
+
+        {/* ✅ Added Phase Information Display */}
+        <div className="form-group">
+          <label>Current Phase *</label>
+          {loadingPhase ? (
+            <div className="loading-phase">
+              <small>Loading phase information...</small>
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={formData.phaseName || "No active phase found"}
+                readOnly
+                className={`input disabled-input ${!formData.phaseId ? 'input-warning' : ''}`}
+              />
+              {errors.phaseId && <p className="error-text">{errors.phaseId}</p>}
+              {formData.phaseId && (
+                <small style={{ color: "#8b5cf6", fontWeight: "600" }}>
+                  ✓ Active phase selected
+                </small>
+              )}
+            </>
+          )}
+        </div>
 
         <div className="form-group">
           <label>Mentor Email *</label>
@@ -150,12 +230,13 @@ export default function MeetingStatusUpdateForm() {
             value={formData.meetingStatus}
             onChange={handleChange}
             className="select"
+            disabled={!formData.phaseId} // ✅ Disable if no active phase
           >
             <option value="">-- Select --</option>
             <option value="Completed">Completed</option>
             <option value="Postponed">Postponed</option>
             <option value="Cancelled">Cancelled</option>
-            <option value="In Progress">In Progress</option>
+            
           </select>
           {errors.meetingStatus && <p className="error-text">{errors.meetingStatus}</p>}
         </div>
@@ -168,6 +249,7 @@ export default function MeetingStatusUpdateForm() {
               value={formData.meetingMinutes}
               onChange={handleChange}
               className="textarea"
+              disabled={!formData.phaseId}
             />
             {errors.meetingMinutes && <p className="error-text">{errors.meetingMinutes}</p>}
           </div>
@@ -181,13 +263,18 @@ export default function MeetingStatusUpdateForm() {
               value={formData.postponedReason}
               onChange={handleChange}
               className="textarea"
+              disabled={!formData.phaseId}
             />
             {errors.postponedReason && <p className="error-text">{errors.postponedReason}</p>}
           </div>
         )}
 
-        <button onClick={handleSubmit} className="submit-btn" disabled={!formData.meetingStatus}>
-          Update Status
+        <button 
+          onClick={handleSubmit} 
+          className="submit-btn" 
+          disabled={!formData.meetingStatus || !formData.phaseId}
+        >
+          {!formData.phaseId ? "No Active Phase" : "Update Status"}
         </button>
       </div>
     </div>

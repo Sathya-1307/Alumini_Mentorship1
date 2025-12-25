@@ -29,7 +29,30 @@ const MeetingScheduleSchema = new mongoose.Schema({
     enum: ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"] 
   },
   number_of_meetings: { type: Number },
-  createdAt: { type: Date, default: Date.now }
+  
+  // ✅ NEW FIELD - Add phaseId exactly like MenteeRequest model
+  phaseId: {
+    type: Number,
+    required: true,
+    min: 1
+  },
+  
+  // Optional: Add status field like MenteeRequest
+  status: {
+    type: String,
+    default: "scheduled",
+    enum: ["scheduled", "completed", "cancelled", "rescheduled"]
+  },
+  
+  createdAt: { 
+    type: Date, 
+    default: Date.now 
+  }
 });
+
+// Optional: Create index for better query performance
+MeetingScheduleSchema.index({ phaseId: 1, mentor_user_id: 1 });
+MeetingScheduleSchema.index({ phaseId: 1, status: 1 });
+MeetingScheduleSchema.index({ phaseId: 1, createdAt: -1 });
 
 module.exports = mentorshipDB.model("MeetingSchedule", MeetingScheduleSchema);

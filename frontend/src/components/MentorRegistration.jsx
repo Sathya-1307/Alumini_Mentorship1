@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import "./MentorRegistration.css";
 
 export default function MentorRegistrationForm() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get email from URL params or localStorage
+  const getEmailFromSource = () => {
+    const params = new URLSearchParams(location.search);
+    const urlEmail = params.get('email');
+    if (urlEmail) return decodeURIComponent(urlEmail);
+    
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedEmail) return storedEmail;
+    
+    return "";
+  };
+
   const [formData, setFormData] = useState({
-    email: "",
+    email: getEmailFromSource(),
     fullName: "",
     designation: "",
     currentCompany: "",
@@ -14,7 +30,7 @@ export default function MentorRegistrationForm() {
     customInterest: "",
     supportDescription: "",
     phaseId: "",
-    phaseName: "", // auto-filled Phase Name
+    phaseName: "",
   });
 
   const [phases, setPhases] = useState([]);
@@ -25,9 +41,32 @@ export default function MentorRegistrationForm() {
   const [submitting, setSubmitting] = useState(false);
   const debounceRef = useRef(null);
 
-  useEffect(() => () => clearTimeout(debounceRef.current), []);
+  // Auto-scroll to top when submitted
+  useEffect(() => {
+    if (submitted) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [submitted]);
 
-  // Fetch all phases and determine current active phase
+  // Fetch user data when email is available on component mount
+  useEffect(() => {
+    if (formData.email && formData.email.trim()) {
+      const trimmedEmail = formData.email.toLowerCase().trim();
+      if (/\S+@\S+\.\S+/.test(trimmedEmail)) {
+        setTimeout(() => {
+          fetchUserByEmail(trimmedEmail);
+        }, 100);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPhases();
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
   const fetchPhases = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/phases");
@@ -97,8 +136,6 @@ export default function MentorRegistrationForm() {
           currentCompany: userData.currentCompany || "Not provided",
         }));
         setEmailFetched(true);
-
-        // Fetch current phase after email fetch
         fetchPhases();
       } else {
         setErrors((p) => ({
@@ -162,7 +199,7 @@ export default function MentorRegistrationForm() {
         setSubmitted(true);
         setTimeout(() => {
           setFormData((prev) => ({
-            email: "",
+            email: prev.email,
             fullName: "",
             designation: "",
             currentCompany: "",
@@ -173,7 +210,7 @@ export default function MentorRegistrationForm() {
             customInterest: "",
             supportDescription: "",
             phaseId: prev.phaseId,
-            phaseName: prev.phaseName, // keep auto-filled phase
+            phaseName: prev.phaseName,
           }));
           setSubmitted(false);
           setEmailFetched(false);
@@ -188,20 +225,41 @@ export default function MentorRegistrationForm() {
     }
   };
 
+  const handleGoBack = () => {
+    navigate('/dashboard');
+  };
+
   return (
     <div className="form-wrapper">
-      <button className="dashboard-btn" onClick={() => (window.location.href = "/dashboard")}>
-        ← Go to Dashboard
+      <button className="dashboard-btn" onClick={handleGoBack}>
+        ← Back to Dashboard
       </button>
 
       <div className="form-container">
         <h1 className="form-title">Mentor Registration</h1>
+        <p className="form-subtitle">
+          {formData.email ? `Registering as: ${formData.email}` : "Only registered alumni can apply"}
+        </p>
+      
 
         <div className="form-card">
-          {submitted && <div className="success-message">✓ Mentor registration submitted!</div>}
+          {/* Enhanced Success Message */}
+          {submitted && (
+            <div className="success-message-container">
+              <div className="success-message">
+                <div className="success-icon">✓</div>
+                <div className="success-content">
+                  <h3 className="success-title">Mentor Registration Successful!</h3>
+                  <p className="success-text">
+                    Thank you for registering as a mentor. Your application has been submitted and will be reviewed by the coordinator.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="form-content">
-            {/* EMAIL */}
+            {/* EMAIL - Read-only if auto-filled */}
             <div className="form-group">
               <label className="label" htmlFor="email">Email *</label>
               <input
@@ -211,8 +269,13 @@ export default function MentorRegistrationForm() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="example@nec.edu.in"
-                className={`input ${errors.email ? "input-error" : ""}`}
+                className={`input ${errors.email ? "input-error" : ""} ${getEmailFromSource() ? 'disabled-input' : ''}`}
+                disabled={submitting || submitted || (!!getEmailFromSource())}
+                readOnly={!!getEmailFromSource()}
               />
+              {getEmailFromSource() && (
+                <small className="info-text">Email auto-filled from dashboard</small>
+              )}
               {loadingEmail && <small>Searching alumni database...</small>}
               {errors.email && <span className="error-text">{errors.email}</span>}
               {emailFetched && !errors.email && (
@@ -317,6 +380,7 @@ export default function MentorRegistrationForm() {
                     return prev;
                   });
                 }}
+                disabled={submitting || submitted}
               >
                 <option value="">-- Select or add below --</option>
                 <option value="Web Development">Web Development</option>
@@ -359,6 +423,7 @@ export default function MentorRegistrationForm() {
                           areaOfInterest: prev.areaOfInterest.filter((i) => i !== interest),
                         }))
                       }
+                      disabled={submitting || submitted}
                     >
                       ×
                     </button>
@@ -375,6 +440,7 @@ export default function MentorRegistrationForm() {
                   onChange={(e) =>
                     setFormData((prev) => ({ ...prev, customInterest: e.target.value }))
                   }
+                  disabled={submitting || submitted}
                 />
                 <button
                   type="button"
@@ -394,6 +460,7 @@ export default function MentorRegistrationForm() {
                       return { ...prev, customInterest: "" };
                     });
                   }}
+                  disabled={submitting || submitted}
                 >
                   Add
                 </button>
@@ -417,6 +484,7 @@ export default function MentorRegistrationForm() {
                 placeholder="How will you support mentees?"
                 rows="4"
                 className={`textarea ${errors.supportDescription ? "input-error" : ""}`}
+                disabled={submitting || submitted}
               />
               {errors.supportDescription && (
                 <span className="error-text">{errors.supportDescription}</span>
@@ -428,7 +496,16 @@ export default function MentorRegistrationForm() {
               className="submit-btn"
               disabled={submitting || loadingEmail || submitted}
             >
-              {submitting ? "Submitting..." : submitted ? "Submitted!" : "Submit"}
+              {submitting ? (
+                <>
+                  <span className="loading-spinner"></span>
+                  Submitting...
+                </>
+              ) : submitted ? (
+                "Submitted!"
+              ) : (
+                "Submit Registration"
+              )}
             </button>
           </div>
         </div>

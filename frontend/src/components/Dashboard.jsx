@@ -1,15 +1,42 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { 
+  Users, 
+  UserPlus, 
+  CheckCircle, 
+  PauseCircle, 
+  TrendingUp, 
+  Award, 
+  Clock, 
+  Calendar, 
+  FileText, 
+  MessageSquare, 
+  BarChart3, 
+  Building, 
+  Search, 
+  X,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  GraduationCap,
+  Briefcase,
+  Target,
+  Users as UsersIcon,
+  UserCheck,
+  CalendarCheck,
+  XCircle,
+  Activity
+} from 'lucide-react';
 import './MentorshipDashboard.css';
 
-// Real-time update intervals (in milliseconds)
 const REFRESH_INTERVALS = {
-  STATS: 30000,      // 30 seconds
-  MENTORS: 60000,    // 1 minute
-  MENTEES: 60000,    // 1 minute
-  MEETINGS: 30000,   // 30 seconds
-  ASSIGNMENTS: 120000 // 2 minutes
+  STATS: 30000,
+  PHASE_STATS: 60000,
+  MENTORS: 60000,
+  MENTEES: 60000,
+  MEETINGS: 30000,
+  ASSIGNMENTS: 120000
 };
 
 export default function RealTimeDashboard() {
@@ -21,7 +48,7 @@ export default function RealTimeDashboard() {
   const [currentMentorIndex, setCurrentMentorIndex] = useState(0);
   const [currentPhaseGraphIndex, setCurrentPhaseGraphIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
-  const [userRole, setUserRole] = useState('mentee');
+  const [userRole, setUserRole] = useState('member'); // Changed from 'mentee' to 'member'
   const [userEmail, setUserEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -38,6 +65,7 @@ export default function RealTimeDashboard() {
     upcomingMeetings: 0
   });
   
+  const [phaseStats, setPhaseStats] = useState([]);
   const [mentorshipPhases, setMentorshipPhases] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [mentorCapacityData, setMentorCapacityData] = useState([]);
@@ -46,9 +74,31 @@ export default function RealTimeDashboard() {
   const [allAssignments, setAllAssignments] = useState([]);
   const [allMeetings, setAllMeetings] = useState([]);
   const [allFeedbacks, setAllFeedbacks] = useState([]);
+  
+  const [meetingStats, setMeetingStats] = useState({
+    completed: 0,
+    postponed: 0,
+    scheduled: 0
+  });
 
-  // Real-time update timers
   const [timers, setTimers] = useState({});
+
+  // Function to check user's actual role using existing endpoint
+  const checkUserRole = useCallback(async (email) => {
+    try {
+      // Use the same login endpoint to get user's actual role
+      const res = await axios.post('http://localhost:5000/api/auth/login', { email });
+      
+      if (res.data.success) {
+        // The existing endpoint returns role: "mentor", "mentee", or "new_user"
+        return res.data.role || 'new_user';
+      }
+      return 'new_user'; // fallback
+    } catch (error) {
+      console.error('Error checking user role:', error);
+      return 'new_user'; // fallback
+    }
+  }, []);
 
   // Check screen size
   useEffect(() => {
@@ -60,13 +110,27 @@ export default function RealTimeDashboard() {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
-  // Get user info from localStorage
+  // Get user info from localStorage and check actual role
   useEffect(() => {
-    const storedRole = localStorage.getItem('userRole') || 'mentee';
+    const storedRole = localStorage.getItem('userRole') || 'member';
     const storedEmail = localStorage.getItem('userEmail') || '';
+    
     setUserRole(storedRole);
     setUserEmail(storedEmail);
-  }, []);
+    
+    // If user is not coordinator/admin, check their actual role
+    if (storedEmail && (storedRole === 'member' || storedRole === 'mentee' || storedRole === 'mentor')) {
+      const fetchActualRole = async () => {
+        const actualRole = await checkUserRole(storedEmail);
+        // Store the actual role in state and localStorage
+        setUserRole(actualRole);
+        localStorage.setItem('userRole', actualRole);
+        console.log('Actual user role:', actualRole);
+      };
+      
+      fetchActualRole();
+    }
+  }, [checkUserRole]);
 
   // Reset mentor index when search changes
   useEffect(() => {
@@ -90,6 +154,17 @@ export default function RealTimeDashboard() {
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
+    }
+  }, []);
+
+  const fetchPhaseStats = useCallback(async () => {
+    try {
+      const res = await axios.get('http://localhost:5000/api/dashboard/phase-stats');
+      if (res.data.success) {
+        setPhaseStats(res.data.phases || []);
+      }
+    } catch (error) {
+      console.error('Error fetching phase stats:', error);
     }
   }, []);
 
@@ -131,6 +206,7 @@ export default function RealTimeDashboard() {
       const res = await axios.get('http://localhost:5000/api/dashboard/meetings');
       if (res.data.success) {
         setAllMeetings(res.data.meetings || []);
+        setMeetingStats(res.data.stats);
       }
     } catch (error) {
       console.error('Error fetching meetings:', error);
@@ -150,12 +226,12 @@ export default function RealTimeDashboard() {
 
   // Setup real-time intervals
   useEffect(() => {
-    // Initial fetch
     const initialFetch = async () => {
       setIsRefreshing(true);
       try {
         await Promise.all([
           fetchDashboardStats(),
+          fetchPhaseStats(),
           fetchAllMentors(),
           fetchAllMentees(),
           fetchAllAssignments(),
@@ -172,8 +248,8 @@ export default function RealTimeDashboard() {
 
     initialFetch();
 
-    // Set up real-time intervals
     const intervalStats = setInterval(fetchDashboardStats, refreshIntervals.STATS);
+    const intervalPhaseStats = setInterval(fetchPhaseStats, refreshIntervals.PHASE_STATS);
     const intervalMentors = setInterval(fetchAllMentors, refreshIntervals.MENTORS);
     const intervalMentees = setInterval(fetchAllMentees, refreshIntervals.MENTEES);
     const intervalAssignments = setInterval(fetchAllAssignments, refreshIntervals.ASSIGNMENTS);
@@ -181,13 +257,13 @@ export default function RealTimeDashboard() {
 
     setTimers({
       stats: intervalStats,
+      phaseStats: intervalPhaseStats,
       mentors: intervalMentors,
       mentees: intervalMentees,
       assignments: intervalAssignments,
       meetings: intervalMeetings
     });
 
-    // Cleanup intervals on unmount
     return () => {
       Object.values(timers).forEach(timer => clearInterval(timer));
     };
@@ -196,7 +272,6 @@ export default function RealTimeDashboard() {
   // Calculate derived data from real-time data
   useEffect(() => {
     if (allMeetings.length > 0) {
-      // Format sessions from meetings
       const formattedSessions = allMeetings.map((meeting, index) => {
         const firstDate = meeting.meeting_dates?.[0];
         return {
@@ -218,7 +293,6 @@ export default function RealTimeDashboard() {
 
   useEffect(() => {
     if (allAssignments.length > 0) {
-      // Calculate mentor capacity from assignments
       const capacityMap = {};
       allAssignments.forEach(assignment => {
         const mentorId = assignment.mentor_user_id;
@@ -245,30 +319,29 @@ export default function RealTimeDashboard() {
   }, [allAssignments]);
 
   useEffect(() => {
-    if (dashboardStats.phaseStats && dashboardStats.phaseStats.length > 0) {
-      const formattedPhases = dashboardStats.phaseStats.map((phase, index) => ({
+    if (phaseStats && phaseStats.length > 0) {
+      const formattedPhases = phaseStats.map((phase) => ({
         id: `phase_${phase.phaseId}`,
         phaseId: phase.phaseId,
-        name: `Phase ${phase.phaseId}`,
+        name: phase.phaseName || `Phase ${phase.phaseId}`,
         period: phase.startDate && phase.endDate 
           ? `${new Date(phase.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - ${new Date(phase.endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
           : 'Not specified',
-        status: index === dashboardStats.phaseStats.length - 1 ? 'active' : 'completed',
-        totalMeetings: 0,
-        completedMeetings: 0,
-        postponedMeetings: 0,
-        mentorsActive: phase.totalMentors || 0,
-        menteesActive: phase.totalMentees || 0,
+        status: phase.isActive ? 'active' : 'completed',
+        totalMeetings: phase.stats?.totalMeetings || 0,
+        completedMeetings: phase.stats?.completedMeetings || 0,
+        postponedMeetings: phase.stats?.cancelledOrPostponed || 0,
+        mentorsActive: phase.stats?.totalMentors || 0,
+        menteesActive: phase.stats?.totalMentees || 0,
         newMentors: 0,
         newMentees: 0
       }));
       setMentorshipPhases(formattedPhases);
     }
-  }, [dashboardStats]);
+  }, [phaseStats]);
 
-  // Calculate phase-wise mentor/mentee data for graph
   const getPhaseGraphData = useCallback(() => {
-    if (!dashboardStats.phaseStats || dashboardStats.phaseStats.length === 0) {
+    if (!phaseStats || phaseStats.length === 0) {
       return {
         phases: ['Phase 1', 'Phase 2', 'Phase 3'],
         mentors: [0, 0, 0],
@@ -277,11 +350,11 @@ export default function RealTimeDashboard() {
     }
     
     return {
-      phases: dashboardStats.phaseStats.map(phase => phase.phaseName || `Phase ${phase.phaseId}`),
-      mentors: dashboardStats.phaseStats.map(phase => phase.totalMentors || 0),
-      mentees: dashboardStats.phaseStats.map(phase => phase.totalMentees || 0)
+      phases: phaseStats.map(phase => phase.phaseName || `Phase ${phase.phaseId}`),
+      mentors: phaseStats.map(phase => phase.stats?.totalMentors || 0),
+      mentees: phaseStats.map(phase => phase.stats?.totalMentees || 0)
     };
-  }, [dashboardStats.phaseStats]);
+  }, [phaseStats]);
 
   // Manual refresh function
   const handleManualRefresh = async () => {
@@ -289,6 +362,7 @@ export default function RealTimeDashboard() {
     try {
       await Promise.all([
         fetchDashboardStats(),
+        fetchPhaseStats(),
         fetchAllMentors(),
         fetchAllMentees(),
         fetchAllAssignments(),
@@ -334,32 +408,13 @@ export default function RealTimeDashboard() {
     mentor.name.toLowerCase().includes(searchMentor.toLowerCase())
   );
 
-  // Calculate real-time meeting statistics
-  const calculateMeetingStats = () => {
-    const completedMeetings = allMeetings.filter(m => 
-      m.status === 'Completed' || m.status === 'completed'
-    ).length;
-    
-    const upcomingMeetings = allMeetings.filter(m => 
-      m.status === 'Scheduled' || m.status === 'scheduled' || m.status === 'upcoming'
-    ).length;
-    
-    const postponedMeetings = allMeetings.filter(m => 
-      m.status === 'Cancelled' || m.status === 'cancelled' || m.status === 'postponed'
-    ).length;
-
-    return { completedMeetings, upcomingMeetings, postponedMeetings };
-  };
-
-  const meetingStats = calculateMeetingStats();
-
-  // Quick actions based on user role (UNCHANGED)
+  // Quick actions based on user role
   const allQuickActions = [
     {
       id: 1,
       title: 'Register New Mentee',
       description: 'Add a new mentee to the program',
-      icon: '👤',
+      icon: UserPlus,
       path: '/menteeregistration',
       color: '#3b82f6',
       roles: ['new_user']
@@ -368,7 +423,7 @@ export default function RealTimeDashboard() {
       id: 2,
       title: 'Register New Mentor',
       description: 'Add a new mentor to the program',
-      icon: '🎓',
+      icon: GraduationCap,
       path: '/mentorregistration',
       color: '#8b5cf6',
       roles: ['new_user']
@@ -377,7 +432,7 @@ export default function RealTimeDashboard() {
       id: 3,
       title: 'Assign Mentee to Mentor',
       description: 'Assign mentees to available mentors',
-      icon: '🤝',
+      icon: Users,
       path: '/menteementor_assign',
       color: '#10b981',
       roles: ['coordinator', 'admin']
@@ -386,7 +441,7 @@ export default function RealTimeDashboard() {
       id: 4,
       title: 'Schedule Meeting',
       description: 'Schedule mentorship sessions',
-      icon: '📅',
+      icon: Calendar,
       path: '/mentor_scheduling',
       color: '#f59e0b',
       roles: ['mentor', 'admin']
@@ -395,7 +450,7 @@ export default function RealTimeDashboard() {
       id: 5,
       title: 'View Scheduled Meetings',
       description: 'View all scheduled meetings',
-      icon: '📋',
+      icon: CalendarCheck,
       path: '/scheduled_dashboard',
       color: '#8b5cf6',
       roles: ['mentee', 'mentor', 'admin']
@@ -404,16 +459,16 @@ export default function RealTimeDashboard() {
       id: 6,
       title: 'Program Feedback',
       description: 'Collect and view program feedback',
-      icon: '💬',
+      icon: MessageSquare,
       path: '/program_feedback',
       color: '#ec4899',
-      roles: ['mentee', 'mentor', 'coordinator', 'admin']
+      roles: ['mentee', 'mentor', 'admin']
     },
     {
       id: 7,
       title: 'Phase Management',
       description: 'Manage mentorship phases and semesters',
-      icon: '📊',
+      icon: BarChart3,
       path: '/admin_dashboard',
       color: '#8b5cf6',
       roles: ['coordinator', 'admin']
@@ -422,23 +477,26 @@ export default function RealTimeDashboard() {
       id: 9,
       title: 'Coordinator Dashboard',
       description: 'Advanced analytics and management tools',
-      icon: '🏢',
+      icon: Building,
       path: '/co-ordinator',
       color: '#ef4444',
       roles: ['coordinator', 'admin']
     }
   ];
 
-  // Filter quick actions based on user role (UNCHANGED)
   const getFilteredQuickActions = () => {
-    return allQuickActions.filter(action => 
-      action.roles.includes(userRole)
-    );
+    return allQuickActions.filter(action => {
+      // Coordinator/admin have special roles
+      if (userRole === 'coordinator' || userRole === 'admin') {
+        return action.roles.includes(userRole);
+      }
+      // For regular users, use their actual role from the endpoint
+      return action.roles.includes(userRole);
+    });
   };
 
   const quickActions = getFilteredQuickActions();
 
-  // Handle quick action click (UNCHANGED)
   const handleQuickActionClick = (action) => {
     if (action.id === 5 && userEmail) {
       navigate(`/scheduled_dashboard/${encodeURIComponent(userEmail)}`);
@@ -495,13 +553,13 @@ export default function RealTimeDashboard() {
 
   const getStatusIcon = (status) => {
     switch(status) {
-      case 'completed': return '✓';
+      case 'completed': return <CheckCircle size={16} />;
       case 'upcoming': 
-      case 'scheduled': return '📅';
+      case 'scheduled': return <Calendar size={16} />;
       case 'postponed': 
-      case 'cancelled': return '⏸';
-      case 'active': return '🔥';
-      default: return '•';
+      case 'cancelled': return <PauseCircle size={16} />;
+      case 'active': return <Activity size={16} />;
+      default: return <Clock size={16} />;
     }
   };
 
@@ -538,6 +596,7 @@ export default function RealTimeDashboard() {
       case 'mentee': return 'Mentee';
       case 'new_user': return 'New User';
       case 'admin': return 'Admin';
+      case 'member': return 'Member'; // Added for initial login
       default: return role;
     }
   };
@@ -634,6 +693,136 @@ export default function RealTimeDashboard() {
     );
   };
 
+  // Render Phase Performance Cards - Professional Version
+  const renderPhasePerformanceCards = () => {
+    if (filteredPhases.length === 0) {
+      return (
+        <div className="phases-empty-state">
+          <div className="empty-state">
+            <div className="empty-icon"><BarChart3 size={48} /></div>
+            <p className="empty-text">
+              {activePhase ? 'No data found for selected phase' : 'Please select a phase'}
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    return filteredPhases.map(phase => {
+      const apiPhase = phaseStats?.find(p => 
+        String(p.phaseId) === String(phase.phaseId)
+      );
+      
+      const stats = apiPhase?.stats || {};
+      
+      return (
+        <div key={phase.id} className="phase-performance-container">
+          {/* Phase Header */}
+          <div className="phase-performance-header">
+            <div className="phase-title-section">
+              <div className="phase-title-wrapper">
+                <h3 className="phase-title">{phase.name}</h3>
+                <span className="phase-period">{phase.period}</span>
+              </div>
+            </div>
+            <div className={`phase-status-badge ${phase.status}`}>
+              <span className="status-dot"></span>
+              {phase.status.toUpperCase()}
+            </div>
+          </div>
+
+          {/* Phase Stats Cards */}
+          <div className="phase-stats-cards">
+            {/* Mentors Card */}
+            <div className="phase-stat-card mentors-card">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <span className="icon-symbol"><UsersIcon size={24} /></span>
+                </div>
+                <span className="stat-card-label">MENTORS</span>
+              </div>
+              <div className="stat-card-content">
+                <div className="stat-card-value">{stats.totalMentors || 0}</div>
+                <div className="stat-card-trend">
+                  <span className="trend-icon">→</span>
+                  <span className="trend-text">Active</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mentees Card */}
+            <div className="phase-stat-card mentees-card">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <span className="icon-symbol"><GraduationCap size={24} /></span>
+                </div>
+                <span className="stat-card-label">MENTEES</span>
+              </div>
+              <div className="stat-card-content">
+                <div className="stat-card-value">{stats.totalMentees || 0}</div>
+                <div className="stat-card-trend">
+                  <span className="trend-icon">→</span>
+                  <span className="trend-text">Active</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Meetings Card */}
+            <div className="phase-stat-card meetings-card">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <span className="icon-symbol"><Calendar size={24} /></span>
+                </div>
+                <span className="stat-card-label">MEETINGS</span>
+              </div>
+              <div className="stat-card-content">
+                <div className="stat-card-value">{stats.totalMeetings || 0}</div>
+                <div className="stat-card-trend">
+                  <span className="trend-icon">→</span>
+                  <span className="trend-text">Scheduled</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Completed Card */}
+            <div className="phase-stat-card completed-card">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <span className="icon-symbol"><CheckCircle size={24} /></span>
+                </div>
+                <span className="stat-card-label">COMPLETED</span>
+              </div>
+              <div className="stat-card-content">
+                <div className="stat-card-value">{stats.completedMeetings || 0}</div>
+                <div className="stat-card-trend">
+                  <span className="trend-icon">↑</span>
+                  <span className="trend-text">Success</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Postponed Card */}
+            <div className="phase-stat-card postponed-card">
+              <div className="stat-card-header">
+                <div className="stat-card-icon">
+                  <span className="icon-symbol"><PauseCircle size={24} /></span>
+                </div>
+                <span className="stat-card-label">POSTPONED</span>
+              </div>
+              <div className="stat-card-content">
+                <div className="stat-card-value">{stats.cancelledOrPostponed || 0}</div>
+                <div className="stat-card-trend">
+                  <span className="trend-icon">↓</span>
+                  <span className="trend-text">Rescheduled</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    });
+  };
+
   if (loading) {
     return (
       <div className="mentorship-dashboard-wrapper">
@@ -654,426 +843,227 @@ export default function RealTimeDashboard() {
       </div>
       
       <div className="dashboard-container">
-        {/* Header with Logout */}
+        {/* Header */}
         <div className="dashboard-header">
-          <div className="dashboard-header-content">
-            <div className="dashboard-logo-section">
-              <div className="dashboard-logo">M</div>
-              <div className="dashboard-header-text">
-                <h1 className="dashboard-title"> Mentorship Dashboard</h1>
+          <div className="header-content">
+            <div className="header-top">
+              <div className="logo-section">
+                <div className="logo">M</div>
+                <h1 className="title">Mentorship Dashboard</h1>
               </div>
-            </div>
-            
-            <div className="dashboard-user-info-section">
-              <div className="dashboard-user-info-left">
-                <div className="dashboard-user-role-badge" style={{ background: getRoleColor(userRole) }}>
+              
+              <div className="user-info">
+                <div className="role-badge">
                   {getRoleDisplayName(userRole)}
                 </div>
                 {userEmail && (
-                  <div className="dashboard-user-email">
-                    <span className="dashboard-email-label">Logged in as:</span>
-                    <span className="dashboard-email-value">{userEmail}</span>
+                  <div className="email-display">
+                    <span className="email-label">Logged in as:</span>
+                    <span className="email-value">{userEmail}</span>
                   </div>
                 )}
+                <button className="logout-btn" onClick={handleLogout}>
+                  <LogOut size={16} />
+                  Logout
+                </button>
               </div>
-              <button className="dashboard-logout-btn" onClick={handleLogout}>
-                Logout
-              </button>
             </div>
           </div>
         </div>
 
-        {/* Stats Cards - REAL-TIME */}
-        <div className="dashboard-stats-grid">
-          <div className="dashboard-stat-card realtime-card">
-            <div className="dashboard-stat-icon">
-              <span>👨‍🏫</span>
-            </div>
-            <div className="dashboard-stat-content">
-              <div className="dashboard-stat-value">{dashboardStats.totalMentors}</div>
-              <div className="dashboard-stat-label">Active Mentors</div>
-            </div>
-          </div>
-
-          <div className="dashboard-stat-card realtime-card">
-            <div className="dashboard-stat-icon">
-              <span>👨‍🎓</span>
-            </div>
-            <div className="dashboard-stat-content">
-              <div className="dashboard-stat-value">{dashboardStats.totalMentees}</div>
-              <div className="dashboard-stat-label">Active Mentees</div>
-            </div>
-          </div>
-
-          <div className="dashboard-stat-card realtime-card">
-            <div className="dashboard-stat-icon">
-              <span>✅</span>
-            </div>
-            <div className="dashboard-stat-content">
-              <div className="dashboard-stat-value">{meetingStats.completedMeetings}</div>
-              <div className="dashboard-stat-label">Completed Meetings</div>
-            </div>
-          </div>
-
-          <div className="dashboard-stat-card realtime-card">
-            <div className="dashboard-stat-icon">
-              <span>⏸️</span>
-            </div>
-            <div className="dashboard-stat-content">
-              <div className="dashboard-stat-value">{meetingStats.postponedMeetings}</div>
-              <div className="dashboard-stat-label">Cancelled/Postponed</div>
-            </div>
-          </div>
-        </div>
-
-        {/* ========== NEW: PHASE DISTRIBUTION GRAPH ========== */}
-        <div className="dashboard-section-card">
-          <div className="dashboard-section-header">
-            <div className="dashboard-title-section">
-              <h2 className="dashboard-section-title">Mentors vs Mentees per Phase</h2>
-            </div>
-          </div>
-          
-          {dashboardStats.phaseStats && dashboardStats.phaseStats.length > 0 ? (
-            renderPhaseDistributionGraph()
-          ) : (
-            <div className="graph-placeholder">
-              <div className="placeholder-icon">📊</div>
-              <p className="placeholder-text">No phase data available yet</p>
-              <p className="placeholder-subtext">Add phases to see the distribution graph</p>
-            </div>
-          )}
-        </div>
-
-        {/* Phase Filter - REMOVED "All Phases" option */}
-        <div className="dashboard-section-card">
-          <div className="dashboard-section-header">
-            <h2 className="dashboard-section-title">Select Phase</h2>
-            <div className="phase-count">
-              {mentorshipPhases.length} phase{mentorshipPhases.length !== 1 ? 's' : ''} total
-            </div>
-          </div>
-          <div className="dashboard-filter-buttons">
-            {mentorshipPhases.map(phase => (
-              <button
-                key={phase.id}
-                onClick={() => setActivePhase(phase.id)}
-                className={`dashboard-filter-btn ${activePhase === phase.id ? 'active' : ''}`}
-                style={activePhase === phase.id ? {
-                  background: getPhaseStatusColor(phase.status),
-                  color: 'white',
-                  borderColor: getPhaseStatusColor(phase.status)
-                } : {}}
-              >
-                {isMobile ? phase.name.replace(' ', '\n') : phase.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Program Phases Performance - REAL-TIME */}
-        <div className="dashboard-section-card">
-          <div className="dashboard-section-header">
-            <div className="dashboard-title-section">
-              <h2 className="dashboard-section-title">
-                Program Phases Performance
-                {activePhase && mentorshipPhases.find(p => p.id === activePhase) && ` - ${mentorshipPhases.find(p => p.id === activePhase).name}`}
-              </h2>
-              <p className="dashboard-section-subtitle">
-                {activePhase && mentorshipPhases.find(p => p.id === activePhase) 
-                  ? `Showing live data for ${mentorshipPhases.find(p => p.id === activePhase).name}` 
-                  : 'Select a phase to view data'
-                }
-              </p>
-            </div>
-          </div>
-          
-          {filteredPhases.length === 0 ? (
-            <div className="dashboard-empty-state">
-              <p className="dashboard-empty-text">
-                {activePhase ? 'No data found for selected phase' : 'Please select a phase'}
-              </p>
-            </div>
-          ) : (
-            <div className="dashboard-phases-grid">
-              {filteredPhases.map(phase => {
-                // Calculate real-time phase-specific stats
-                const phaseMentors = allMentors.filter(m => 
-                  m.phaseId === phase.phaseId || m.phaseId === phase.id.replace('phase_', '')
-                );
-                const phaseMentees = allMentees.filter(m => 
-                  m.phaseId === phase.phaseId || m.phaseId === phase.id.replace('phase_', '')
-                );
-                const phaseAssignments = allAssignments.filter(a => 
-                  a.phaseId === phase.phaseId
-                );
-                const phaseMeetings = allMeetings.filter(m => {
-                  // Filter meetings based on mentor/mentee phase
-                  const mentorInPhase = phaseMentors.some(pm => pm.mentor_id === m.mentor_user_id);
-                  const menteesInPhase = m.mentee_user_ids?.some(menteeId => 
-                    phaseMentees.some(pm => pm.mentee_user_id === menteeId)
-                  );
-                  return mentorInPhase || menteesInPhase;
-                });
-                
-                const completedMeetings = phaseMeetings.filter(m => 
-                  m.status === 'completed' || m.status === 'Completed'
-                ).length;
-                const upcomingMeetings = phaseMeetings.filter(m => 
-                  m.status === 'scheduled' || m.status === 'Scheduled' || m.status === 'upcoming'
-                ).length;
-                const postponedMeetings = phaseMeetings.filter(m => 
-                  m.status === 'postponed' || m.status === 'Postponed' || 
-                  m.status === 'cancelled' || m.status === 'Cancelled'
-                ).length;
-                
-                return (
-                  <div 
-                    key={phase.id} 
-                    className={`dashboard-phase-card ${phase.status === 'active' ? 'active-phase' : ''}`}
-                  >
-                    <div className="dashboard-phase-header">
-                      <div className="dashboard-phase-title-row">
-                        <h3 className="dashboard-phase-name">{phase.name}</h3>
-                        <span 
-                          className="dashboard-phase-status" 
-                          style={{ background: getPhaseStatusColor(phase.status) }}
-                        >
-                          {phase.status.toUpperCase()}
-                        </span>
-                      </div>
-                      <p className="dashboard-phase-period">{phase.period}</p>
-                    </div>
-                    
-                    {/* Real-time stats */}
-                    <div className="dashboard-phase-stats-table">
-                      <div className="dashboard-phase-stat-box realtime-stat">
-                        <span className="dashboard-phase-stat-label">Mentors</span>
-                        <span className="dashboard-phase-stat-value">{phaseMentors.length}</span>
-                        <div className="realtime-change">
-                          {phaseMentors.length > 0 ? '✓' : '-'}
-                        </div>
-                      </div>
-                      <div className="dashboard-phase-stat-box realtime-stat">
-                        <span className="dashboard-phase-stat-label">Mentees</span>
-                        <span className="dashboard-phase-stat-value">{phaseMentees.length}</span>
-                        <div className="realtime-change">
-                          {phaseMentees.length > 0 ? '✓' : '-'}
-                        </div>
-                      </div>
-                     
-                      <div className="dashboard-phase-stat-box realtime-stat">
-                        <span className="dashboard-phase-stat-label">Meetings</span>
-                        <span className="dashboard-phase-stat-value">{phaseMeetings.length}</span>
-                        <div className="realtime-change">
-                          {phaseMeetings.length > 0 ? '✓' : '-'}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Meeting breakdown */}
-                    <div className="meeting-breakdown">
-                      <div className="breakdown-item completed">
-                        <span className="breakdown-label">Completed</span>
-                        <span className="breakdown-value">{completedMeetings}</span>
-                      </div>
-                      <div className="breakdown-item upcoming">
-                        <span className="breakdown-label">Upcoming</span>
-                        <span className="breakdown-value">{upcomingMeetings}</span>
-                      </div>
-                      <div className="breakdown-item postponed">
-                        <span className="breakdown-label">Postponed</span>
-                        <span className="breakdown-value">{postponedMeetings}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Current Semester Mentors - REAL-TIME */}
-        <div className="dashboard-section-card">
-          <div className="dashboard-section-header">
-            <div className="dashboard-title-section">
-              <h2 className="dashboard-section-title">Current Mentors ({allMentors.length})</h2>
-              <p className="dashboard-section-subtitle">
-               mentor capacity tracking - {allAssignments.length} active assignments
-                {searchMentor && ` - Filtered by "${searchMentor}"`}
-              </p>
+        {/* Stats Grid */}
+        <div className="stats-section">
+          <div className="stats-grid">
+            <div className="stat-card">
+              <div className="stat-icon"><Users size={36} /></div>
+              <div className="stat-value">{dashboardStats.totalMentors}</div>
+              <div className="stat-label">Active Mentors</div>
             </div>
             
-            <div className="dashboard-search-box">
+            <div className="stat-card">
+              <div className="stat-icon"><GraduationCap size={36} /></div>
+              <div className="stat-value">{dashboardStats.totalMentees}</div>
+              <div className="stat-label">Active Mentees</div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-icon"><CheckCircle size={36} /></div>
+              <div className="stat-value">{meetingStats?.completed || 0}</div>
+              <div className="stat-label">Completed Meetings</div>
+            </div>
+            
+            <div className="stat-card">
+              <div className="stat-icon"><PauseCircle size={36} /></div>
+              <div className="stat-value">{meetingStats?.postponed || 0}</div>
+              <div className="stat-label">Cancelled/Postponed</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Phase Distribution Graph */}
+       
+
+        {/* Phase Filter */}
+        <div className="section-header">
+          <h2 className="section-title">Program Phases Performance</h2>
+        </div>
+        
+        <div className="phase-filter-section">
+          <div className="filter-container">
+            <div className="filter-title">Select Phase</div>
+            <div className="filter-buttons">
+              {mentorshipPhases.map(phase => (
+                <button
+                  key={phase.id}
+                  onClick={() => setActivePhase(phase.id)}
+                  className={`filter-btn ${activePhase === phase.id ? 'active' : ''}`}
+                >
+                  {phase.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Program Phases Performance - Professional Cards Version */}
+        <div className="phases-section">
+          <div className="phases-performance-wrapper">
+            {renderPhasePerformanceCards()}
+          </div>
+        </div>
+
+        {/* Current Mentors */}
+        <div className="mentors-section">
+          <div className="search-container">
+            <div className="search-header">
+              <div>
+                <h2 className="search-title">Current Mentors ({allMentors.length})</h2>
+              </div>
+            </div>
+            
+            <div className="search-box">
+              <span className="search-icon"><Search size={18} /></span>
               <input
                 type="text"
                 placeholder="Search mentor..."
                 value={searchMentor}
                 onChange={(e) => setSearchMentor(e.target.value)}
-                className="dashboard-search-input"
+                className="search-input"
               />
               {searchMentor && (
-                <button onClick={() => setSearchMentor('')} className="dashboard-clear-search">
-                  ✕
+                <button onClick={() => setSearchMentor('')} className="clear-search">
+                  <X size={18} />
                 </button>
               )}
             </div>
           </div>
           
-          {filteredMentorCapacity.length === 0 ? (
-            <div className="dashboard-empty-state">
-              <p className="dashboard-empty-text">
-                {searchMentor ? 'No mentors found' : 'No mentor capacity data yet'}
-              </p>
-            </div>
-          ) : (
-            <div className="mentor-carousel">
-              <div className="dashboard-carousel-header">
-                <div className="dashboard-carousel-info">
-                  <span className="dashboard-carousel-counter">
-                    {searchMentor 
-                      ? `Found ${filteredMentorCapacity.length} mentor${filteredMentorCapacity.length !== 1 ? 's' : ''}` 
-                      : `Mentor ${currentMentorIndex + 1} of ${filteredMentorCapacity.length}`
-                    }
-                  </span>
-                </div>
-                {!searchMentor && filteredMentorCapacity.length > 1 && (
-                  <div className="dashboard-carousel-controls">
-                    <button onClick={prevMentor} className="dashboard-carousel-btn">‹</button>
-                    <button onClick={nextMentor} className="dashboard-carousel-btn">›</button>
-                  </div>
-                )}
+          <div className="mentor-carousel">
+            <div className="carousel-controls">
+              <div className="carousel-info">
+                <span className="carousel-counter">
+                  {searchMentor 
+                    ? `Found ${filteredMentorCapacity.length} mentor${filteredMentorCapacity.length !== 1 ? 's' : ''}` 
+                    : `Mentor ${currentMentorIndex + 1} of ${filteredMentorCapacity.length}`
+                  }
+                </span>
               </div>
-
-              <div className="dashboard-mentor-cards">
-                {searchMentor ? (
-                  filteredMentorCapacity.map((mentor) => (
-                    <div key={mentor.id} className="dashboard-mentor-card realtime-card">
-                      <h3 className="dashboard-mentor-name">{mentor.name}</h3>
-                      <div className="dashboard-capacity-meter">
-                        <div className="dashboard-capacity-info">
-                          <span className="dashboard-capacity-count">{mentor.menteeCount}/{mentor.maxCapacity} mentees</span>
-                          <span className="dashboard-capacity-percentage">
-                            {Math.round((mentor.menteeCount / mentor.maxCapacity) * 100)}% capacity
-                          </span>
-                        </div>
-                        <div className="dashboard-progress-bar">
-                          <div 
-                            className="dashboard-progress-fill"
-                            style={{
-                              width: `${Math.min((mentor.menteeCount / mentor.maxCapacity) * 100, 100)}%`,
-                              background: getCapacityColor(mentor.menteeCount, mentor.maxCapacity)
-                            }}
-                          />
-                        </div>
-                      </div>
-                      <div className="dashboard-mentor-stats">
-                        <div className="dashboard-stat-item">
-                          <span className="dashboard-stat-label">Sessions Completed</span>
-                          <span className="dashboard-stat-value">{mentor.sessionsCompleted}</span>
-                        </div>
-                        <div className="dashboard-stat-item">
-                          <span className="dashboard-stat-label">Upcoming Sessions</span>
-                          <span className="dashboard-stat-value">{mentor.sessionsUpcoming}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  filteredMentorCapacity.map((mentor, index) => (
-                    <div
-                      key={mentor.id}
-                      className={`dashboard-mentor-card ${index === currentMentorIndex ? 'active' : 'inactive'} `}
-                    >
-                      <h3 className="dashboard-mentor-name">{mentor.name}</h3>
-                      <div className="dashboard-capacity-meter">
-                        <div className="dashboard-capacity-info">
-                          <span className="dashboard-capacity-count">{mentor.menteeCount}/{mentor.maxCapacity} mentees</span>
-                          <span className="dashboard-capacity-percentage">
-                            {Math.round((mentor.menteeCount / mentor.maxCapacity) * 100)}% capacity
-                          </span>
-                        </div>
-                        <div className="dashboard-progress-bar">
-                          <div 
-                            className="dashboard-progress-fill"
-                            style={{
-                              width: `${Math.min((mentor.menteeCount / mentor.maxCapacity) * 100, 100)}%`,
-                              background: getCapacityColor(mentor.menteeCount, mentor.maxCapacity)
-                            }}
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="mentor-mentees-list">
-                        <span className="mentee-label">Mentees:</span>
-                        {mentor.mentees.length > 0 ? (
-                          <div className="mentee-tags">
-                            {mentor.mentees.slice(0, 3).map((mentee, idx) => (
-                              <span key={idx} className="mentee-tag">{mentee}</span>
-                            ))}
-                            {mentor.mentees.length > 3 && (
-                              <span className="mentee-more">+{mentor.mentees.length - 3} more</span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="no-mentees">No mentees assigned</span>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-
+              
               {!searchMentor && filteredMentorCapacity.length > 1 && (
-                <div className="dashboard-carousel-indicators">
-                  {filteredMentorCapacity.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => goToMentor(index)}
-                      className={`dashboard-carousel-indicator ${index === currentMentorIndex ? 'active' : ''}`}
-                    />
-                  ))}
+                <div className="carousel-buttons">
+                  <button onClick={prevMentor} className="carousel-btn"><ChevronLeft size={20} /></button>
+                  <button onClick={nextMentor} className="carousel-btn"><ChevronRight size={20} /></button>
                 </div>
               )}
             </div>
-          )}
-        </div>
-
-        {/* Quick Actions - UNCHANGED */}
-        <div className="dashboard-section-card">
-          <div className="dashboard-section-header">
-            <h2 className="dashboard-section-title">Quick Actions</h2>
-            <p className="dashboard-section-subtitle">
-              Quick access for {getRoleDisplayName(userRole)} role
-            </p>
-          </div>
-          
-          {quickActions.length === 0 ? (
-            <div className="dashboard-empty-state">
-              <p className="dashboard-empty-text">No actions available for your role</p>
-            </div>
-          ) : (
-            <div className="dashboard-quick-actions-grid">
-              {quickActions.map((action) => (
-                <div 
-                  key={action.id} 
-                  className="dashboard-quick-action-card"
-                  onClick={() => handleQuickActionClick(action)}
-                  style={{ borderTop: `4px solid ${action.color}` }}
+            
+            <div className="mentor-cards">
+              {filteredMentorCapacity.map((mentor, index) => (
+                <div
+                  key={mentor.id}
+                  className={`mentor-card ${index === currentMentorIndex ? 'active' : 'inactive'}`}
                 >
-                  <div className="dashboard-action-icon" style={{ color: action.color }}>
-                    {action.icon}
+                  <h3 className="mentor-name">{mentor.name}</h3>
+                  
+                  <div className="capacity-meter">
+                    <div className="capacity-info">
+                      <span className="capacity-count">{mentor.menteeCount}/{mentor.maxCapacity} mentees</span>
+                      <span className="capacity-percentage">
+                        {Math.round((mentor.menteeCount / mentor.maxCapacity) * 100)}% capacity
+                      </span>
+                    </div>
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill"
+                        style={{
+                          width: `${Math.min((mentor.menteeCount / mentor.maxCapacity) * 100, 100)}%`
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="dashboard-action-content">
-                    <h3 className="dashboard-action-title">{action.title}</h3>
-                    <p className="dashboard-action-description">{action.description}</p>
+                  
+                  <div className="mentees-list">
+                    <span className="mentee-label">Mentees</span>
+                    {mentor.mentees.length > 0 ? (
+                      <div className="mentee-tags">
+                        {mentor.mentees.slice(0, 3).map((mentee, idx) => (
+                          <span key={idx} className="mentee-tag">{mentee}</span>
+                        ))}
+                        {mentor.mentees.length > 3 && (
+                          <span className="mentee-tag">+{mentor.mentees.length - 3} more</span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="no-mentees">No mentees assigned</span>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
-          )}
+            
+            {!searchMentor && filteredMentorCapacity.length > 1 && (
+              <div className="carousel-indicators">
+                {filteredMentorCapacity.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => goToMentor(index)}
+                    className={`carousel-indicator ${index === currentMentorIndex ? 'active' : ''}`}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        
+
+        {/* Quick Actions */}
+        <div className="actions-section">
+          <div className="section-header">
+            <h2 className="section-title">Quick Actions</h2>
+            <p className="search-subtitle">Quick access for {getRoleDisplayName(userRole)} role</p>
+          </div>
+          
+          <div className="actions-grid">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <div 
+                  key={action.id} 
+                  className="action-item"
+                  onClick={() => handleQuickActionClick(action)}
+                >
+                  <div className="action-icon">
+                    <Icon size={24} />
+                  </div>
+                  <div className="action-content">
+                    <h3 className="action-title">{action.title}</h3>
+                    <span className="action-role">{getRoleDisplayName(userRole)}</span>
+                    <p className="action-description">{action.description}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

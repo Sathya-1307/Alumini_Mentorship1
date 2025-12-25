@@ -5,7 +5,7 @@ const meetingStatusSchema = new mongoose.Schema({
   meeting_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "MeetingSchedule",
-    required: true, // track status per specific meeting
+    required: true,
   },
   mentor_user_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -34,8 +34,23 @@ const meetingStatusSchema = new mongoose.Schema({
   statusApproval: {
     type: String,
     enum: ["Pending", "Approved", "Rejected"],
-    default: "Pending", // approval workflow
+    default: "Pending",
   },
-}, { timestamps: true });
+  // ✅ NEW FIELD - phaseId
+  phaseId: {
+    type: Number,
+    required: true,
+    min: 1
+  },
+}, { 
+  timestamps: true 
+});
+
+// ✅ Add indexes for better query performance
+meetingStatusSchema.index({ meeting_id: 1, phaseId: 1 });
+meetingStatusSchema.index({ phaseId: 1, status: 1 });
+meetingStatusSchema.index({ mentor_user_id: 1, phaseId: 1 });
+meetingStatusSchema.index({ mentee_user_id: 1, phaseId: 1 });
+meetingStatusSchema.index({ phaseId: 1, statusApproval: 1 });
 
 module.exports = mentorshipDB.model("MeetingStatus", meetingStatusSchema);

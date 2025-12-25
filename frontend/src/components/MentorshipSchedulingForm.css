@@ -664,3 +664,21 @@ body {
     background-size: 300% 300% !important;
   }
 }
+/* Phase specific styles */
+.loading-phase {
+  padding: 8px 0;
+  color: #666;
+  font-style: italic;
+}
+
+.input-warning {
+  border-color: #f59e0b !important;
+  background-color: #fffbeb !important;
+}
+
+/* Make sure disabled inputs have proper styling */
+.disabled-input {
+  background-color: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}

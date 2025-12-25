@@ -22,6 +22,7 @@ export default function LoginPage() {
     try {
       let role = "";
 
+      // Check for coordinator or admin (hardcoded)
       if (email.toLowerCase() === "rampriya@gmail.com") {
         role = "coordinator";
       } 
@@ -29,15 +30,18 @@ export default function LoginPage() {
         role = "admin";
       } 
       else {
+        // Use existing endpoint to check if user exists
         const res = await axios.post("http://localhost:5000/api/auth/login", { email });
 
         if (!res.data.success) {
-          setError(res.data.message || "Login failed");
+          setError(res.data.message || "User not found");
           setLoading(false);
           return;
         }
 
-        role = res.data.role;
+        // User exists - store as 'member' for now
+        // Dashboard will check actual role
+        role = "member";
       }
 
       localStorage.setItem("userEmail", email);
@@ -45,13 +49,8 @@ export default function LoginPage() {
 
       console.log("Login successful:", { email, role });
 
-      if (role === "admin") {
-        navigate("/admin_dashboard");
-      } else if (role === "coordinator") {
-        navigate("/dashboard");
-      } else {
-        navigate("/dashboard");
-      }
+      // Redirect to dashboard for all users
+      navigate("/dashboard");
 
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");

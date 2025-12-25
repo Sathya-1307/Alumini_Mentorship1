@@ -1,9 +1,25 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import "./ProgramFeedback.css";
 
 export default function ProgramFeedbackForm() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get email from URL params or localStorage
+  const getEmailFromSource = () => {
+    const params = new URLSearchParams(location.search);
+    const urlEmail = params.get('email');
+    if (urlEmail) return decodeURIComponent(urlEmail);
+    
+    const storedEmail = localStorage.getItem('userEmail');
+    if (storedEmail) return storedEmail;
+    
+    return "";
+  };
+
   const [formData, setFormData] = useState({
-    email: "",
+    email: getEmailFromSource(),
     name: "",
     role: "",
     programOrganization: 0,
@@ -22,6 +38,25 @@ export default function ProgramFeedbackForm() {
   const [submitting, setSubmitting] = useState(false);
 
   const emailTimeoutRef = useRef(null);
+
+  // Auto-scroll to top when submitted
+  useEffect(() => {
+    if (submitted) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [submitted]);
+
+  // Fetch user data when email is available on component mount
+  useEffect(() => {
+    if (formData.email && formData.email.trim()) {
+      const trimmedEmail = formData.email.toLowerCase().trim();
+      if (/\S+@\S+\.\S+/.test(trimmedEmail)) {
+        setTimeout(() => {
+          fetchUserByEmail(trimmedEmail);
+        }, 100);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -131,7 +166,7 @@ export default function ProgramFeedbackForm() {
         setSubmitted(true);
         setTimeout(() => {
           setFormData({
-            email: "",
+            email: formData.email, // Keep the email
             name: "",
             role: "",
             programOrganization: 0,
@@ -166,6 +201,7 @@ export default function ProgramFeedbackForm() {
             type="button"
             onClick={() => handleRatingChange(category, star)}
             className="star-button"
+            disabled={submitting || submitted}
           >
             <svg viewBox="0 0 24 24" className={`star ${star <= value ? "star-filled" : "star-empty"}`}>
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
@@ -177,24 +213,47 @@ export default function ProgramFeedbackForm() {
     </div>
   );
 
+  const handleGoBack = () => {
+    navigate('/dashboard');
+  };
+
   return (
     <div className="form-wrapper">
-       <div className="orb orb-1"></div>
-    <div className="orb orb-2"></div>
-    <div className="orb orb-3"></div>
-      <button className="dashboard-btn" onClick={() => (window.location.href = "/dashboard")}>
-        ← Go to Dashboard
+      <div className="orb orb-1"></div>
+      <div className="orb orb-2"></div>
+      <div className="orb orb-3"></div>
+      
+      <button className="dashboard-btn" onClick={handleGoBack}>
+        ← Back to Dashboard
       </button>
 
       <div className="form-container">
-        <h1 className="form-title">Program Feedback</h1>
-        <p className="form-subtitle">Share your experience with us</p>
+        <div className="form-header">
+          <h1 className="form-title">Program Feedback</h1>
+          <p className="form-subtitle">
+            {formData.email ? `Providing feedback as: ${formData.email}` : "Share your experience with us"}
+          </p>
+         
+        </div>
 
         <div className="form-card">
-          {submitted && <div className="success-message">Feedback submitted successfully!</div>}
+          {/* Enhanced Success Message */}
+          {submitted && (
+            <div className="success-message-container">
+              <div className="success-message">
+                <div className="success-icon">✓</div>
+                <div className="success-content">
+                  <h3 className="success-title">Feedback Submitted Successfully!</h3>
+                  <p className="success-text">
+                    Thank you for sharing your valuable feedback. Your input helps us improve the mentorship program.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="form-content">
-            {/* EMAIL */}
+            {/* EMAIL - Read-only if auto-filled */}
             <div className="form-group">
               <label className="label">Email <span className="required">*</span></label>
               <input
@@ -203,9 +262,13 @@ export default function ProgramFeedbackForm() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="e.g. your.email@example.com"
-                className={`input ${errors.email ? "input-error" : ""}`}
-                disabled={submitting}
+                className={`input ${errors.email ? "input-error" : ""} ${getEmailFromSource() ? 'disabled-input' : ''}`}
+                disabled={submitting || submitted || (!!getEmailFromSource())}
+                readOnly={!!getEmailFromSource()}
               />
+              {getEmailFromSource() && (
+                <small className="info-text">Email auto-filled from dashboard</small>
+              )}
               {loadingEmail && <small className="loading-text">Searching user...</small>}
               {errors.email && <span className="error-text">{errors.email}</span>}
               {emailFetched && !errors.email && <small style={{ color: "#10b981" }}>User found!</small>}
@@ -214,7 +277,13 @@ export default function ProgramFeedbackForm() {
             {/* NAME */}
             <div className="form-group">
               <label className="label">Name <span className="required">*</span></label>
-              <input type="text" name="name" value={formData.name} disabled className="input disabled-input" />
+              <input 
+                type="text" 
+                name="name" 
+                value={formData.name} 
+                disabled 
+                className="input disabled-input" 
+              />
               {errors.name && <span className="error-text">{errors.name}</span>}
             </div>
 
@@ -226,6 +295,7 @@ export default function ProgramFeedbackForm() {
                 value={formData.role}
                 onChange={handleChange}
                 className={`select ${errors.role ? "input-error" : ""}`}
+                disabled={submitting || submitted}
               >
                 <option value="">-- Select Role --</option>
                 <option value="Mentor">Mentor</option>
@@ -236,10 +306,30 @@ export default function ProgramFeedbackForm() {
             </div>
 
             {/* STAR RATINGS */}
-            <StarRating category="programOrganization" value={formData.programOrganization} label="Program Organization" error={errors.programOrganization} />
-            <StarRating category="matchingProcess" value={formData.matchingProcess} label="Matching Process" error={errors.matchingProcess} />
-            <StarRating category="supportProvided" value={formData.supportProvided} label="Support Provided" error={errors.supportProvided} />
-            <StarRating category="overallSatisfaction" value={formData.overallSatisfaction} label="Overall Satisfaction" error={errors.overallSatisfaction} />
+            <StarRating 
+              category="programOrganization" 
+              value={formData.programOrganization} 
+              label="Program Organization" 
+              error={errors.programOrganization} 
+            />
+            <StarRating 
+              category="matchingProcess" 
+              value={formData.matchingProcess} 
+              label="Matching Process" 
+              error={errors.matchingProcess} 
+            />
+            <StarRating 
+              category="supportProvided" 
+              value={formData.supportProvided} 
+              label="Support Provided" 
+              error={errors.supportProvided} 
+            />
+            <StarRating 
+              category="overallSatisfaction" 
+              value={formData.overallSatisfaction} 
+              label="Overall Satisfaction" 
+              error={errors.overallSatisfaction} 
+            />
 
             {/* GENERAL FEEDBACK */}
             <div className="form-group">
@@ -250,6 +340,8 @@ export default function ProgramFeedbackForm() {
                 onChange={handleChange}
                 rows="4"
                 className={`textarea ${errors.generalFeedback ? "input-error" : ""}`}
+                disabled={submitting || submitted}
+                placeholder="What did you like about the program? Any specific experiences to share?"
               />
               {errors.generalFeedback && <span className="error-text">{errors.generalFeedback}</span>}
             </div>
@@ -263,6 +355,8 @@ export default function ProgramFeedbackForm() {
                 onChange={handleChange}
                 rows="4"
                 className={`textarea ${errors.suggestions ? "input-error" : ""}`}
+                disabled={submitting || submitted}
+                placeholder="How can we improve the program? Any features or processes you'd like to see changed?"
               />
               {errors.suggestions && <span className="error-text">{errors.suggestions}</span>}
             </div>
@@ -275,11 +369,12 @@ export default function ProgramFeedbackForm() {
                 value={formData.participateAgain}
                 onChange={handleChange}
                 className={`select ${errors.participateAgain ? "input-error" : ""}`}
+                disabled={submitting || submitted}
               >
                 <option value="">-- Select Option --</option>
-                <option value="Yes">Yes</option>
-                <option value="Maybe">Maybe</option>
-                <option value="No">No</option>
+                <option value="Yes">Yes, definitely</option>
+                <option value="Maybe">Maybe, depending on circumstances</option>
+                <option value="No">No, probably not</option>
               </select>
               {errors.participateAgain && <span className="error-text">{errors.participateAgain}</span>}
             </div>
@@ -289,7 +384,16 @@ export default function ProgramFeedbackForm() {
               className="submit-btn"
               disabled={submitting || loadingEmail || submitted}
             >
-              {submitting ? "Submitting..." : submitted ? "Submitted!" : "Submit Feedback"}
+              {submitting ? (
+                <>
+                  <span className="loading-spinner"></span>
+                  Submitting...
+                </>
+              ) : submitted ? (
+                "Submitted!"
+              ) : (
+                "Submit Feedback"
+              )}
             </button>
           </div>
         </div>

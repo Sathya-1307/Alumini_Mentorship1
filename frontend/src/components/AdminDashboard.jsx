@@ -125,7 +125,7 @@ export default function AdminDashboard() {
 
   // Handle back button click
   const handleBackClick = () => {
-    navigate("/");
+    navigate("/dashboard");
   };
 
   return (

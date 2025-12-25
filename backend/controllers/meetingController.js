@@ -71,9 +71,21 @@ exports.scheduleMeeting = async (req, res) => {
       meeting_link,
       agenda,
       preferred_day,
-      number_of_meetings
+      number_of_meetings,
+      phaseId  // ✅ Added phaseId
     } = req.body;
 
+    // ✅ Validate phaseId first
+    if (!phaseId) {
+      return res.status(400).json({ message: "phaseId is required" });
+    }
+
+    const phaseIdNum = Number(phaseId);
+    if (isNaN(phaseIdNum) || phaseIdNum <= 0) {
+      return res.status(400).json({ message: "Invalid phaseId" });
+    }
+
+    // Validate other required fields
     if (
       !mentor_user_id ||
       !Array.isArray(mentee_user_ids) || mentee_user_ids.length === 0 ||
@@ -85,12 +97,23 @@ exports.scheduleMeeting = async (req, res) => {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
+    // Validate meeting dates format
+    const validDates = meeting_dates.every(date => {
+      const d = new Date(date);
+      return !isNaN(d.getTime());
+    });
+    
+    if (!validDates) {
+      return res.status(400).json({ message: "Invalid date format in meeting_dates" });
+    }
+
     // Map each date to an object with unique meeting_id
     const meetingDatesWithId = meeting_dates.map(d => ({
       date: new Date(d),
       meeting_id: new mongoose.Types.ObjectId()
     }));
 
+    // ✅ Create meeting with phaseId included
     const newMeeting = new MeetingSchedule({
       mentor_user_id,
       mentee_user_ids,
@@ -101,19 +124,41 @@ exports.scheduleMeeting = async (req, res) => {
       meeting_link: meeting_link || null,
       agenda: agenda || null,
       preferred_day: preferred_day || null,
-      number_of_meetings: number_of_meetings || meetingDatesWithId.length
+      number_of_meetings: number_of_meetings || meetingDatesWithId.length,
+      phaseId: phaseIdNum,  // ✅ Added phaseId
+      status: "scheduled",  // Optional: Add status field
+      createdAt: new Date()  // Optional: Add timestamp
     });
 
     await newMeeting.save();
 
     res.status(201).json({
       message: "Meeting scheduled successfully",
-      meeting_dates: newMeeting.meeting_dates
+      meeting_dates: newMeeting.meeting_dates,
+      phaseId: newMeeting.phaseId  // ✅ Return phaseId in response
     });
 
   } catch (err) {
     console.error("SCHEDULE MEETING ERROR:", err);
-    res.status(500).json({ message: "Server error" });
+    
+    // Handle duplicate key errors or validation errors
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ 
+        message: "Validation error", 
+        errors: err.errors 
+      });
+    }
+    
+    if (err.code === 11000) { // MongoDB duplicate key error
+      return res.status(400).json({ 
+        message: "Duplicate meeting detected" 
+      });
+    }
+    
+    res.status(500).json({ 
+      message: "Server error",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 

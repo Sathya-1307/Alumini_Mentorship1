@@ -164,30 +164,28 @@ exports.getAllAssignments = async (req, res) => {
   }
 };
 
-// ==================== GET ALL MEETINGS WITH FORMATTED DATA ====================
 exports.getAllMeetings = async (req, res) => {
   try {
     console.log("🔍 Fetching all meetings...");
-    
+
     const { dateFrom, dateTo, status } = req.query;
-    
-    // Build filter
+
+    // ---------------- FILTER FOR MEETING SCHEDULE ----------------
     const filter = {};
     if (dateFrom || dateTo) {
       filter["meeting_dates.date"] = {};
       if (dateFrom) filter["meeting_dates.date"].$gte = new Date(dateFrom);
       if (dateTo) filter["meeting_dates.date"].$lte = new Date(dateTo);
     }
-    
-    const meetings = await MeetingSchedule.find(filter);
-    console.log(`📊 Found ${meetings.length} meetings`);
 
+    const meetings = await MeetingSchedule.find(filter);
+    console.log(`📊 Found ${meetings.length} meeting schedules`);
+
+    // ---------------- FORMAT MEETINGS ----------------
     const formatted = await Promise.all(
       meetings.map(async (meeting) => {
-        // Get mentor details
         const mentor = await User.findById(meeting.mentor_user_id);
-        
-        // Get all mentees details
+
         const mentees = await Promise.all(
           meeting.mentee_user_ids.map(async (menteeId) => {
             const mentee = await User.findById(menteeId);
@@ -198,17 +196,24 @@ exports.getAllMeetings = async (req, res) => {
             };
           })
         );
-        
-        // Get meeting status
+
+        // 🔴 IMPORTANT: get ALL statuses for this meeting
+        const statusDocs = await MeetingStatus.find({
+          meeting_id: meeting._id
+        });
+
+        // Decide display status (priority-based)
         let meetingStatus = "Scheduled";
-        if (meeting.meeting_dates && meeting.meeting_dates.length > 0) {
-          const firstDate = meeting.meeting_dates[0];
-          if (firstDate.meeting_id) {
-            const statusDoc = await MeetingStatus.findOne({ meeting_id: firstDate.meeting_id });
-            if (statusDoc) {
-              meetingStatus = statusDoc.status;
-            }
-          }
+        if (statusDocs.some(s => s.status === "In Progress")) {
+          meetingStatus = "In Progress";
+        } else if (statusDocs.some(s => s.status === "Scheduled")) {
+          meetingStatus = "Scheduled";
+        } else if (statusDocs.some(s => s.status === "Completed")) {
+          meetingStatus = "Completed";
+        } else if (statusDocs.some(s => s.status === "Postponed")) {
+          meetingStatus = "Postponed";
+        } else if (statusDocs.some(s => s.status === "Cancelled")) {
+          meetingStatus = "Cancelled";
         }
 
         return {
@@ -218,7 +223,7 @@ exports.getAllMeetings = async (req, res) => {
             name: mentor?.basic?.name || "Unknown Mentor",
             email: mentor?.basic?.email_id || "No email"
           },
-          mentees: mentees,
+          mentees,
           meeting_dates: meeting.meeting_dates || [],
           meeting_time: meeting.meeting_time,
           duration_minutes: meeting.duration_minutes,
@@ -233,31 +238,45 @@ exports.getAllMeetings = async (req, res) => {
       })
     );
 
-    // Apply status filter if specified
+    // ---------------- STATUS FILTER ----------------
     let filteredMeetings = formatted;
-    if (status && status !== 'all') {
-      filteredMeetings = formatted.filter(m => 
-        m.status && m.status.toLowerCase() === status.toLowerCase()
+    if (status && status !== "all") {
+      filteredMeetings = formatted.filter(
+        m => m.status.toLowerCase() === status.toLowerCase()
       );
     }
 
-    console.log(`✅ Final meetings sent to frontend: ${filteredMeetings.length}`);
-    res.json({ 
-      success: true, 
+    // ---------------- ✅ STATUS COUNTS FROM MeetingStatus ----------------
+    const meetingStatuses = await MeetingStatus.find();
+
+    const stats = {
+      total: meetingStatuses.length,
+      completed: meetingStatuses.filter(s => s.status === "Completed").length,
+      postponed: meetingStatuses.filter(
+        s => s.status === "Postponed" || s.status === "Cancelled"
+      ).length,
+      scheduled: meetingStatuses.filter(
+        s => s.status === "Scheduled" || s.status === "In Progress"
+      ).length
+    };
+
+    console.log("✅ Meeting stats:", stats);
+
+    res.json({
+      success: true,
       meetings: filteredMeetings,
-      stats: {
-        total: filteredMeetings.length,
-        scheduled: filteredMeetings.filter(m => m.status === "Scheduled" || m.status === "scheduled").length,
-        completed: filteredMeetings.filter(m => m.status === "Completed" || m.status === "completed").length,
-        cancelled: filteredMeetings.filter(m => m.status === "Cancelled" || m.status === "cancelled").length
-      }
+      stats
     });
 
   } catch (err) {
     console.error("❌ Error fetching meetings:", err);
-    res.status(500).json({ success: false, message: "Server error fetching meetings" });
+    res.status(500).json({
+      success: false,
+      message: "Server error fetching meetings"
+    });
   }
 };
+
 
 // ==================== GET ALL FEEDBACKS WITH FORMATTED DATA ====================
 exports.getAllFeedbacks = async (req, res) => {
@@ -491,9 +510,7 @@ exports.getDashboardSummary = async (req, res) => {
           }
           
           // Check if meeting is upcoming
-          if (dateObj.date && new Date(dateObj.date) >= today) {
-            upcomingMeetings++;
-          }
+         
         }
       }
     }
@@ -653,47 +670,100 @@ function getRandomColor() {
 }
 
 // ==================== GET PHASE-WISE STATISTICS ====================
+// ==================== GET PHASE-WISE STATISTICS (FIXED & FINAL) ====================
+// ==================== GET PHASE-WISE STATISTICS (FINAL FIX) ====================
 exports.getPhaseStatistics = async (req, res) => {
   try {
     const phases = await Phase.find().sort({ phaseId: 1 });
-    
-    const detailedStats = await Promise.all(
+    const today = new Date();
+
+    const result = await Promise.all(
       phases.map(async (phase) => {
-        const [mentors, mentees, assignments, meetings] = await Promise.all([
-          MentorRegistration.find({ phaseId: phase.phaseId }),
-          MenteeRequest.find({ phaseId: phase.phaseId }),
-          MentorMenteeAssignment.find({ phaseId: phase.phaseId }),
-          MeetingSchedule.find({ phaseId: phase.phaseId })
-        ]);
-        
-        // Calculate assigned mentees
-        const assignedMentees = assignments.reduce((sum, assignment) => 
-          sum + assignment.mentee_user_ids.length, 0);
-        
-        // Get meeting status counts
-        let completedMeetings = 0;
-        let upcomingMeetings = 0;
-        const today = new Date();
-        
-        for (const meeting of meetings) {
-          if (meeting.meeting_dates) {
-            for (const dateObj of meeting.meeting_dates) {
-              if (dateObj.meeting_id) {
-                const statusDoc = await MeetingStatus.findOne({ 
-                  meeting_id: dateObj.meeting_id 
-                });
-                if (statusDoc?.status === 'Completed') completedMeetings++;
-              }
-              
-              if (dateObj.date && new Date(dateObj.date) >= today) {
-                upcomingMeetings++;
-              }
-            }
+
+        const phaseId = phase.phaseId;
+
+        // 1️⃣ Mentors & mentees by phase
+        const mentors = await MentorRegistration.find({ phaseId });
+        const mentees = await MenteeRequest.find({ phaseId });
+
+        const mentorIds = mentors.map(m => m.mentor_id);
+        const menteeIds = mentees.map(m => m.mentee_user_id);
+
+        // 2️⃣ Assignments (NO phaseId here)
+        const assignments = await MentorMenteeAssignment.find({
+          mentor_user_id: { $in: mentorIds }
+        });
+
+        const assignedMenteeSet = new Set();
+        assignments.forEach(a => {
+          a.mentee_user_ids?.forEach(id =>
+            assignedMenteeSet.add(id.toString())
+          );
+        });
+
+        const assignedMentees = assignedMenteeSet.size;
+
+        // 3️⃣ MeetingStatus — PHASE BASED (FIXED ✅)
+        const meetingStatuses = await MeetingStatus.find({ phaseId });
+
+        // Group by meeting_id
+        const meetingMap = new Map();
+
+        meetingStatuses.forEach(ms => {
+          const mid = ms.meeting_id.toString();
+
+          if (!meetingMap.has(mid)) {
+            meetingMap.set(mid, {
+              completed: false,
+              cancelledOrPostponed: false
+            });
           }
-        }
-        
+
+          if (ms.status === "Completed") {
+            meetingMap.get(mid).completed = true;
+          }
+
+          if (ms.status === "Cancelled" || ms.status === "Postponed") {
+            meetingMap.get(mid).cancelledOrPostponed = true;
+          }
+        });
+
+        const totalMeetings = meetingMap.size;
+
+        let completedMeetings = 0;
+        let cancelledOrPostponed = 0;
+
+        meetingMap.forEach(v => {
+          if (v.completed) completedMeetings++;
+          if (v.cancelledOrPostponed) cancelledOrPostponed++;
+        });
+
+        // 4️⃣ Upcoming meetings (phase-based)
+        let upcomingMeetings = 0;
+
+        const schedules = await MeetingSchedule.find({ phaseId });
+
+        schedules.forEach(s => {
+          s.meeting_dates?.forEach(d => {
+            if (d?.date && new Date(d.date) > today) {
+              upcomingMeetings++;
+            }
+          });
+        });
+
+        // 5️⃣ Mentor list (top 3)
+        const mentorList = await Promise.all(
+          mentors.slice(0, 3).map(async mentor => {
+            const user = await User.findById(mentor.mentor_id);
+            return {
+              name: user?.basic?.name || "Unknown",
+              interests: mentor.areas_of_interest || []
+            };
+          })
+        );
+
         return {
-          phaseId: phase.phaseId,
+          phaseId,
           phaseName: phase.name,
           startDate: phase.startDate,
           endDate: phase.endDate,
@@ -701,40 +771,38 @@ exports.getPhaseStatistics = async (req, res) => {
           stats: {
             totalMentors: mentors.length,
             totalMentees: mentees.length,
-            assignedMentees: assignedMentees,
-            assignmentRate: mentees.length > 0 
+            assignedMentees,
+            assignmentRate: mentees.length
               ? ((assignedMentees / mentees.length) * 100).toFixed(1) + "%"
               : "0%",
-            totalMeetings: meetings.length,
-            completedMeetings: completedMeetings,
-            upcomingMeetings: upcomingMeetings,
-            completionRate: meetings.length > 0
-              ? ((completedMeetings / meetings.length) * 100).toFixed(1) + "%"
+            totalMeetings,
+            completedMeetings,
+            upcomingMeetings,
+            cancelledOrPostponed,
+            completionRate: totalMeetings
+              ? ((completedMeetings / totalMeetings) * 100).toFixed(1) + "%"
               : "0%"
           },
-          mentorList: await Promise.all(
-            mentors.slice(0, 3).map(async (mentor) => {
-              const user = await User.findById(mentor.mentor_id);
-              return {
-                name: user?.basic?.name || "Unknown",
-                interests: mentor.areas_of_interest || []
-              };
-            })
-          )
+          mentorList
         };
       })
     );
-    
-    res.json({
-      success: true,
-      phases: detailedStats
-    });
-    
+
+    res.json({ success: true, phases: result });
+
   } catch (err) {
-    console.error("❌ Error fetching phase statistics:", err);
+    console.error("❌ Phase stats error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+
+
+
+
+
+
+
 
 // ==================== GET MENTOR INTERESTS CAROUSEL ====================
 exports.getMentorInterestsCarousel = async (req, res) => {
